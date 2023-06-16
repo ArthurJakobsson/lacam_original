@@ -206,6 +206,8 @@ bool Planner::funcPIBT(Agent* ai)
   const auto i = ai->id;
   const auto K = ai->v_now->neighbor.size();
 
+  //testing adding something to git
+
   // get candidates for next locations
   for (size_t k = 0; k < K; ++k) {
     auto u = ai->v_now->neighbor[k];
