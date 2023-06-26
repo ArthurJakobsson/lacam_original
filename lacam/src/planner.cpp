@@ -201,28 +201,57 @@ bool Planner::get_new_config(Node* S, Constraint* M)
   return true;
 }
 
+std::vector<std::pair<double,double>> getTensor(size_t K)
+{
+  std::vector<std::pair<double,double>> arr;
+  arr.resize(K);
+  double sum = 0;
+  //generate K random numbers that sum to 1
+  for(size_t k = 0; k<K;k++)
+  {
+    arr[k].first = rand();
+    sum+=arr[k].first;
+    arr[k].second = k;
+  }
+  for(size_t k = 0; k<K;k++)
+  {
+    arr[k].first = arr[k].first/sum;
+  }
+  return arr;
+}
 bool Planner::funcPIBT(Agent* ai)
 {
   const auto i = ai->id;
   const auto K = ai->v_now->neighbor.size();
+  std::vector<std::pair<double,double>> t = getTensor(K);
+  std::stable_sort(t.begin(), t.end());
+  // for(size_t i=0;i<K;i++)
+  // {
+  //   printf("%lu\t", K);
+  //   printf("t[%zu]: %f\n", i, t[i].first);
+  // }
 
-  //testing adding something to git
 
-  // get candidates for next locations
+  //get NN inputs
+  //pass NN inputs through NN to get output predictions
+  //output predictions is a tensor with probabilities
+  //post process output predictions to ordered tentative location
+
+  // get candidates for next locations <-- dont need this section
   for (size_t k = 0; k < K; ++k) {
-    auto u = ai->v_now->neighbor[k];
+    auto u = ai->v_now->neighbor[t[k].second];
     C_next[i][k] = u;
     if (MT != nullptr)
       tie_breakers[u->id] = get_random_float(MT);  // set tie-breaker
   }
   C_next[i][K] = ai->v_now;
 
-  // sort, note: K + 1 is sufficient
-  std::sort(C_next[i].begin(), C_next[i].begin() + K + 1,
-            [&](Vertex* const v, Vertex* const u) {
-              return D.get(i, v) + tie_breakers[v->id] <
-                     D.get(i, u) + tie_breakers[u->id];
-            });
+  // sort, note: K + 1 is sufficient <-- this is where the NN feeds in
+  // std::sort(C_next[i].begin(), C_next[i].begin() + K + 1,
+  //           [&](Vertex* const v, Vertex* const u) {
+  //             return D.get(i, v) + tie_breakers[v->id] <
+  //                    D.get(i, u) + tie_breakers[u->id];
+  //           }); <-- comment this out and it makes the randomness happen
 
   for (size_t k = 0; k < K + 1; ++k) {
     auto u = C_next[i][k];
@@ -254,6 +283,7 @@ bool Planner::funcPIBT(Agent* ai)
   ai->v_next = ai->v_now;
   return false;
 }
+
 
 Solution solve(const Instance& ins, const int verbose, const Deadline* deadline,
                std::mt19937* MT)
