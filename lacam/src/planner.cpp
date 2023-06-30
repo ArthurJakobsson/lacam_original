@@ -105,7 +105,7 @@ Solution Planner::solve()
       }
       std::reverse(solution.begin(), solution.end());
       break;
-    }
+    } //this says if the solution is found, backtrack and prepare the solution
 
     // low-level search end
     if (S->search_tree.empty()) {
@@ -234,7 +234,7 @@ bool Planner::funcPIBT(Agent* ai)
 
   // get candidates for next locations <-- dont need this section
   for (size_t k = 0; k < K; ++k) {
-    auto u = ai->v_now->neighbor[t[k].second]; //[k] <-- ordered by preferred actions now
+    auto u = ai->v_now->neighbor[k];
     C_next[i][k] = u;
     if (MT != nullptr)
       tie_breakers[u->id] = get_random_float(MT);  // set tie-breaker
