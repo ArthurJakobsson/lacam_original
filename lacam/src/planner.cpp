@@ -225,11 +225,6 @@ bool Planner::funcPIBT(Agent* ai)
   const auto K = ai->v_now->neighbor.size();
   std::vector<std::pair<double,double>> t = getTensor(K);
   std::stable_sort(t.begin(), t.end());
-  // for(size_t i=0;i<K;i++)
-  // {
-  //   printf("%lu\t", K);
-  //   printf("t[%zu]: %f\n", i, t[i].first);
-  // }
 
 
   //get NN inputs
@@ -239,7 +234,7 @@ bool Planner::funcPIBT(Agent* ai)
 
   // get candidates for next locations <-- dont need this section
   for (size_t k = 0; k < K; ++k) {
-    auto u = ai->v_now->neighbor[t[k].second];
+    auto u = ai->v_now->neighbor[t[k].second]; //[k] <-- ordered by preferred actions now
     C_next[i][k] = u;
     if (MT != nullptr)
       tie_breakers[u->id] = get_random_float(MT);  // set tie-breaker
