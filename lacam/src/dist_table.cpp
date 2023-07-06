@@ -30,6 +30,7 @@ int DistTable::get(int i, int v_id)
    * BFS with lazy evaluation
    * c.f., Reverse Resumable A*
    * https://www.aaai.org/Papers/AIIDE/2005/AIIDE05-020.pdf
+   * This is just backward djikstras
    */
 
   while (!OPEN[i].empty()) {

@@ -1,4 +1,5 @@
 #include "../include/planner.hpp"
+#include <iostream>
 
 Constraint::Constraint() : who(std::vector<int>()), where(Vertices()), depth(0)
 {
@@ -69,6 +70,25 @@ Planner::Planner(const Instance* _ins, const Deadline* _deadline,
 {
 }
 
+int** createNbyFive (const int N, DistTable& D, Vertices C)
+{
+  // NN call here
+  // immediately convert tensor to 2d vector
+
+  auto arr2d = new int [N][5];
+  //make it work given arbitrary N by 5
+  for(int i = 0; i<N; i++)
+  {
+    for(size_t j = 0; j < C.size(); j++)
+    {
+      arr
+    }
+  }
+  return arr2cd;
+  //use distance with D.get and then add some random noise to simulate
+  // don't do a torch tensor yet, do vector<vector<>>
+}
+
 Solution Planner::solve()
 {
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tstart search");
@@ -121,7 +141,8 @@ Solution Planner::solve()
       auto i = S->order[M->depth];
       auto C = S->C[i]->neighbor;
       C.push_back(S->C[i]);
-      if (MT != nullptr) std::shuffle(C.begin(), C.end(), *MT);  // randomize
+      //if (MT != nullptr) std::shuffle(C.begin(), C.end(), *MT);  // randomize
+      printf("size: %ld", C.size());
       for (auto u : C) S->search_tree.push(new Constraint(M, i, u));
     }
 
@@ -223,8 +244,8 @@ bool Planner::funcPIBT(Agent* ai)
 {
   const auto i = ai->id;
   const auto K = ai->v_now->neighbor.size();
-  std::vector<std::pair<double,double>> t = getTensor(K);
-  std::stable_sort(t.begin(), t.end());
+  // std::vector<std::pair<double,double>> t = getTensor(K);
+  // std::stable_sort(t.begin(), t.end());
 
 
   //get NN inputs
@@ -234,7 +255,7 @@ bool Planner::funcPIBT(Agent* ai)
 
   // get candidates for next locations <-- dont need this section
   for (size_t k = 0; k < K; ++k) {
-    auto u = ai->v_now->neighbor[t[k].second]; //[k] <-- ordered by preferred actions now
+    auto u = ai->v_now->neighbor[k];//t[k].second]; //[k] <-- ordered by preferred actions now
     C_next[i][k] = u;
     if (MT != nullptr)
       tie_breakers[u->id] = get_random_float(MT);  // set tie-breaker
