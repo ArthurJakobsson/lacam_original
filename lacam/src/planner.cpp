@@ -70,21 +70,36 @@ Planner::Planner(const Instance* _ins, const Deadline* _deadline,
 {
 }
 
-int** createNbyFive (const int N, DistTable& D, Vertices C)
+// std::vector<std::vector<std::pair<int,int>>> prediction_sort(std::vector<std::vector<double>>)
+// {
+// }
+
+std::vector<std::vector<double>> createNbyFive (const int N,
+                                                DistTable& D, Vertices C)
 {
   // NN call here
   // immediately convert tensor to 2d vector
 
-  auto arr2d = new int [N][5];
+  //eliminate invalid to make it < N by 5
+
+  std::vector<std::vector<double>> predictions;
+  predictions.resize(N);
+  for (int i = 0; i < N; ++i)
+    predictions[i].resize(5);
+
   //make it work given arbitrary N by 5
   for(int i = 0; i<N; i++)
   {
-    for(size_t j = 0; j < C.size(); j++)
+    std::vector<Vertex*> c_next = C[i]->neighbor;
+    size_t next_size = c_next.size();
+    for(size_t j = 0; j < next_size; j++)
     {
-      arr
+      predictions[i][j] = D.get(i, c_next[j]);
+      //how do i set the correct position
     }
   }
-  return arr2cd;
+  return predictions;
+
   //use distance with D.get and then add some random noise to simulate
   // don't do a torch tensor yet, do vector<vector<>>
 }
@@ -127,6 +142,8 @@ Solution Planner::solve()
       break;
     }
 
+    //we don't need search tree, out ranking are our search tree
+
     // low-level search end
     if (S->search_tree.empty()) {
       OPEN.pop();
@@ -141,17 +158,20 @@ Solution Planner::solve()
       auto i = S->order[M->depth];
       auto C = S->C[i]->neighbor;
       C.push_back(S->C[i]);
-      //if (MT != nullptr) std::shuffle(C.begin(), C.end(), *MT);  // randomize
-      printf("size: %ld", C.size());
+      if (MT != nullptr) std::shuffle(C.begin(), C.end(), *MT);  // randomize
+      //insert based on order of C
+      //setup caching system for node
       for (auto u : C) S->search_tree.push(new Constraint(M, i, u));
     }
 
+    // only do if the high level node is new: std::vector<std::vector<double>> preds = createNbyFive(N, D, S->C); //change this to only have effect on PIBT
+    // each high level node should store the proposals
     // create successors at the high-level search
-    if (!get_new_config(S, M)) continue;
+    if (!get_new_config(S, M)) continue; // get new config is the "for loop" part
 
     // create new configuration
     auto C = Config(N, nullptr);
-    for (auto a : A) C[a->id] = a->v_next;
+    for (auto a : A) C[a->id] = a->v_next; //this should set to the current path indices a1 b1 stuff
 
     // check explored list
     auto iter = CLOSED.find(C);
@@ -178,9 +198,9 @@ Solution Planner::solve()
   return solution;
 }
 
-bool Planner::get_new_config(Node* S, Constraint* M)
+bool Planner::get_new_config(Node* S, Constraint* M) //Node contains the N by 5
 {
-  // setup cache
+  // setup cache: CHECK maybe GONE
   for (auto a : A) {
     // clear previous cache
     if (a->v_now != nullptr && occupied_now[a->v_now->id] == a) {
@@ -196,7 +216,7 @@ bool Planner::get_new_config(Node* S, Constraint* M)
     occupied_now[a->v_now->id] = a;
   }
 
-  // add constraints
+  // add constraints : EDIT
   for (auto k = 0; k < M->depth; ++k) {
     const auto i = M->who[k];        // agent
     const auto l = M->where[k]->id;  // loc
@@ -240,15 +260,14 @@ std::vector<std::pair<double,double>> getTensor(size_t K)
   }
   return arr;
 }
-bool Planner::funcPIBT(Agent* ai)
+
+bool Planner::funcPIBT(Agent* ai) //pass in proposals N by <=5 table
 {
   const auto i = ai->id;
   const auto K = ai->v_now->neighbor.size();
-  // std::vector<std::pair<double,double>> t = getTensor(K);
-  // std::stable_sort(t.begin(), t.end());
 
 
-  //get NN inputs
+  //get NN inputs should get passed from above
   //pass NN inputs through NN to get output predictions
   //output predictions is a tensor with probabilities
   //post process output predictions to ordered tentative location
@@ -268,6 +287,12 @@ bool Planner::funcPIBT(Agent* ai)
   //             return D.get(i, v) + tie_breakers[v->id] <
   //                    D.get(i, u) + tie_breakers[u->id];
   //           }); <-- comment this out and it makes the randomness happen
+
+  // D.get  should become -> proposal[i][v] or equivalent access or proposal weights
+
+  // maybe sort instead of D by N by <=5
+
+  // replace D with sort by  1 by <=5 (greedily choose best option for my current agent)
 
   for (size_t k = 0; k < K + 1; ++k) {
     auto u = C_next[i][k];

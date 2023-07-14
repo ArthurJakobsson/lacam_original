@@ -27,6 +27,7 @@ struct Node {
   std::vector<float> priorities;
   std::vector<int> order;
   std::queue<Constraint*> search_tree;
+  std::vector<std::vector<double>>  action_ranking;
 
   Node(Config _C, DistTable& D, Node* _parent = nullptr);
   ~Node();
