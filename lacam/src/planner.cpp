@@ -138,7 +138,7 @@ Solution Planner::solve()
       }
       std::reverse(solution.begin(), solution.end());
       break;
-    }
+    } //this says if the solution is found, backtrack and prepare the solution
 
     //we don't need search tree, out ranking are our search tree
 
