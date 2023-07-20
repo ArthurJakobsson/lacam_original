@@ -49,3 +49,5 @@ int DistTable::get(int i, int v_id)
 }
 
 int DistTable::get(int i, Vertex* v) { return get(i, v->id); }
+
+

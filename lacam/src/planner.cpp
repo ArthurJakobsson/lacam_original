@@ -80,22 +80,20 @@ std::vector<std::vector<double>> createNbyFive (const int N,
   // NN call here
   // immediately convert tensor to 2d vector
 
-  //eliminate invalid to make it < N by 5
+  // eliminate invalid to make it < N by 5
 
   std::vector<std::vector<double>> predictions;
   predictions.resize(N);
-  for (int i = 0; i < N; ++i)
-    predictions[i].resize(5);
 
   //make it work given arbitrary N by 5
   for(int i = 0; i<N; i++)
   {
     std::vector<Vertex*> c_next = C[i]->neighbor;
     size_t next_size = c_next.size();
+    predictions[i].resize(next_size);
     for(size_t j = 0; j < next_size; j++)
     {
       predictions[i][j] = D.get(i, c_next[j]);
-      //how do i set the correct position
     }
   }
   return predictions;
