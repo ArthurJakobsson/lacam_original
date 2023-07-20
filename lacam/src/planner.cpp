@@ -71,9 +71,6 @@ Planner::Planner(const Instance* _ins, const Deadline* _deadline,
 {
 }
 
-// std::vector<std::vector<std::pair<int,int>>> prediction_sort(std::vector<std::vector<double>>)
-// {
-// }
 
 std::vector<std::map<int, double>> createNbyFive (const int N,
                                                 DistTable& D, const Vertices &C)
@@ -91,6 +88,7 @@ std::vector<std::map<int, double>> createNbyFive (const int N,
   {
     std::vector<Vertex*> c_next = C[i]->neighbor;
     size_t next_size = c_next.size();
+    predictions[i][C[i]->id] = D.get(i, C[i]->id);
     for(size_t j = 0; j < next_size; j++)
     {
       predictions[i][c_next[j]->id] = D.get(i, c_next[j]);
@@ -242,24 +240,6 @@ bool Planner::get_new_config(Node* S, Constraint* M) //Node contains the N by 5
   return true;
 }
 
-// std::vector<std::pair<double,double>> getTensor(size_t K)
-// {
-//   std::vector<std::pair<double,double>> arr;
-//   arr.resize(K);
-//   double sum = 0;
-//   //generate K random numbers that sum to 1
-//   for(size_t k = 0; k<K;k++)
-//   {
-//     arr[k].first = rand();
-//     sum+=arr[k].first;
-//     arr[k].second = k;
-//   }
-//   for(size_t k = 0; k<K;k++)
-//   {
-//     arr[k].first = arr[k].first/sum;
-//   }
-//   return arr;
-// }
 
 bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pass in proposals N by <=5 table
 {
@@ -283,26 +263,19 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
 
 
   //sort, note: K + 1 is sufficient <-- this is where the NN feeds in
-  std::sort(C_next[i].begin(), C_next[i].begin() + K + 1,
-            [&](Vertex* const v, Vertex* const u) {
-              if(fabs(preds[i][u->id]-D.get(i,u))>0.0001)
-              {
-                printf("diff: %f\n", preds[i][u->id]-D.get(i,u));
-              }
-              return preds[i][v->id] <// + tie_breakers[v->id] <
-                      preds[i][u->id];// + tie_breakers[u->id];
-            });
-
-
   // std::sort(C_next[i].begin(), C_next[i].begin() + K + 1,
   //           [&](Vertex* const v, Vertex* const u) {
-  //             if(preds[i][u->id]-D.get(i,u)!=0)
-  //             {
-  //               printf("diff: %f\n", preds[i][u->id]-D.get(i,u));
-  //             }
-  //             return D.get(i,v)<// + tie_breakers[v->id] <
-  //                    D.get(i,u);// + tie_breakers[u->id];
+  //             printf("hi");
+  //             return preds[i][v->id] <// + tie_breakers[v->id] <
+  //                     preds[i][u->id];// + tie_breakers[u->id];
   //           });
+
+
+  std::sort(C_next[i].begin(), C_next[i].begin() + K + 1,
+            [&](Vertex* const v, Vertex* const u) {
+              return D.get(i,v) <// + tie_breakers[v->id] <
+                     D.get(i,u);// + tie_breakers[u->id];
+            });
 
 
   // D.get  should become -> proposal[i][v->id] or equivalent access or proposal weights

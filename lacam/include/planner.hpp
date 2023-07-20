@@ -29,6 +29,9 @@ struct Node {
   std::queue<Constraint*> search_tree;
   std::vector<std::vector<double>>  action_ranking;
 
+  //store predictions here
+
+
   Node(Config _C, DistTable& D, Node* _parent = nullptr);
   ~Node();
 };
@@ -66,7 +69,7 @@ struct Planner {
           int _verbose = 0);
   Solution solve();
   bool get_new_config(Node* S, Constraint* M);
-  bool funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds);
+  bool funcPIBT(Agent* ai,std::vector<std::map<int,double>> &preds);
 };
 
 // main function
