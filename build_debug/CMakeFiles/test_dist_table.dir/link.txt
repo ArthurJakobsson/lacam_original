@@ -1,0 +1,1 @@
+/usr/bin/c++  -g   CMakeFiles/test_dist_table.dir/tests/test_dist_table.cpp.o CMakeFiles/test_dist_table.dir/third_party/googletest/googletest/src/gtest_main.cc.o  -o test_dist_table  lacam/liblacam.a lib/libgtest.a -lpthread 

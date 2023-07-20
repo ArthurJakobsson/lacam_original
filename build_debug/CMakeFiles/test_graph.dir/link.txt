@@ -1,0 +1,1 @@
+/usr/bin/c++  -g   CMakeFiles/test_graph.dir/tests/test_graph.cpp.o CMakeFiles/test_graph.dir/third_party/googletest/googletest/src/gtest_main.cc.o  -o test_graph  lacam/liblacam.a lib/libgtest.a -lpthread 
