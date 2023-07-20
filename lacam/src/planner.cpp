@@ -1,5 +1,6 @@
 #include "../include/planner.hpp"
 #include <iostream>
+#include <map>
 
 Constraint::Constraint() : who(std::vector<int>()), where(Vertices()), depth(0)
 {
@@ -74,15 +75,15 @@ Planner::Planner(const Instance* _ins, const Deadline* _deadline,
 // {
 // }
 
-std::vector<std::vector<double>> createNbyFive (const int N,
-                                                DistTable& D, Vertices C)
+std::vector<std::map<int, double>> createNbyFive (const int N,
+                                                DistTable& D, const Vertices &C)
 {
   // NN call here
   // immediately convert tensor to 2d vector
 
-  // eliminate invalid to make it < N by 5
+  // eliminate invalid to make it N by < 5
 
-  std::vector<std::vector<double>> predictions;
+  std::vector<std::map<int, double>> predictions;
   predictions.resize(N);
 
   //make it work given arbitrary N by 5
@@ -90,10 +91,9 @@ std::vector<std::vector<double>> createNbyFive (const int N,
   {
     std::vector<Vertex*> c_next = C[i]->neighbor;
     size_t next_size = c_next.size();
-    predictions[i].resize(next_size);
     for(size_t j = 0; j < next_size; j++)
     {
-      predictions[i][j] = D.get(i, c_next[j]);
+      predictions[i][c_next[j]->id] = D.get(i, c_next[j]);
     }
   }
   return predictions;
@@ -162,7 +162,8 @@ Solution Planner::solve()
       for (auto u : C) S->search_tree.push(new Constraint(M, i, u));
     }
 
-    // only do if the high level node is new: std::vector<std::vector<double>> preds = createNbyFive(N, D, S->C); //change this to only have effect on PIBT
+    // only do if the high level node is new:
+    // std::vector<std::vector<double>> preds = createNbyFive(N, D, S->C); //change this to only have effect on PIBT
     // each high level node should store the proposals
     // create successors at the high-level search
     if (!get_new_config(S, M)) continue; // get new config is the "for loop" part
@@ -232,34 +233,35 @@ bool Planner::get_new_config(Node* S, Constraint* M) //Node contains the N by 5
     occupied_next[l] = A[i];
   }
 
+  std::vector<std::map<int,double>> preds = createNbyFive(N, D, S->C); //change this to only have effect on PIBT
   // perform PIBT
   for (auto k : S->order) {
     auto a = A[k];
-    if (a->v_next == nullptr && !funcPIBT(a)) return false;  // planning failure
+    if (a->v_next == nullptr && !funcPIBT(a, preds)) return false;  // planning failure
   }
   return true;
 }
 
-std::vector<std::pair<double,double>> getTensor(size_t K)
-{
-  std::vector<std::pair<double,double>> arr;
-  arr.resize(K);
-  double sum = 0;
-  //generate K random numbers that sum to 1
-  for(size_t k = 0; k<K;k++)
-  {
-    arr[k].first = rand();
-    sum+=arr[k].first;
-    arr[k].second = k;
-  }
-  for(size_t k = 0; k<K;k++)
-  {
-    arr[k].first = arr[k].first/sum;
-  }
-  return arr;
-}
+// std::vector<std::pair<double,double>> getTensor(size_t K)
+// {
+//   std::vector<std::pair<double,double>> arr;
+//   arr.resize(K);
+//   double sum = 0;
+//   //generate K random numbers that sum to 1
+//   for(size_t k = 0; k<K;k++)
+//   {
+//     arr[k].first = rand();
+//     sum+=arr[k].first;
+//     arr[k].second = k;
+//   }
+//   for(size_t k = 0; k<K;k++)
+//   {
+//     arr[k].first = arr[k].first/sum;
+//   }
+//   return arr;
+// }
 
-bool Planner::funcPIBT(Agent* ai) //pass in proposals N by <=5 table
+bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pass in proposals N by <=5 table
 {
   const auto i = ai->id;
   const auto K = ai->v_now->neighbor.size();
@@ -272,21 +274,38 @@ bool Planner::funcPIBT(Agent* ai) //pass in proposals N by <=5 table
 
   // get candidates for next locations <-- dont need this section
   for (size_t k = 0; k < K; ++k) {
-    auto u = ai->v_now->neighbor[k];//t[k].second]; //[k] <-- ordered by preferred actions now
+    auto u = ai->v_now->neighbor[k];
     C_next[i][k] = u;
     if (MT != nullptr)
       tie_breakers[u->id] = get_random_float(MT);  // set tie-breaker
   }
   C_next[i][K] = ai->v_now;
 
-  // sort, note: K + 1 is sufficient <-- this is where the NN feeds in
+
+  //sort, note: K + 1 is sufficient <-- this is where the NN feeds in
+  std::sort(C_next[i].begin(), C_next[i].begin() + K + 1,
+            [&](Vertex* const v, Vertex* const u) {
+              if(fabs(preds[i][u->id]-D.get(i,u))>0.0001)
+              {
+                printf("diff: %f\n", preds[i][u->id]-D.get(i,u));
+              }
+              return preds[i][v->id] <// + tie_breakers[v->id] <
+                      preds[i][u->id];// + tie_breakers[u->id];
+            });
+
+
   // std::sort(C_next[i].begin(), C_next[i].begin() + K + 1,
   //           [&](Vertex* const v, Vertex* const u) {
-  //             return D.get(i, v) + tie_breakers[v->id] <
-  //                    D.get(i, u) + tie_breakers[u->id];
-  //           }); <-- comment this out and it makes the randomness happen
+  //             if(preds[i][u->id]-D.get(i,u)!=0)
+  //             {
+  //               printf("diff: %f\n", preds[i][u->id]-D.get(i,u));
+  //             }
+  //             return D.get(i,v)<// + tie_breakers[v->id] <
+  //                    D.get(i,u);// + tie_breakers[u->id];
+  //           });
 
-  // D.get  should become -> proposal[i][v] or equivalent access or proposal weights
+
+  // D.get  should become -> proposal[i][v->id] or equivalent access or proposal weights
 
   // maybe sort instead of D by N by <=5
 
@@ -311,7 +330,7 @@ bool Planner::funcPIBT(Agent* ai) //pass in proposals N by <=5 table
     if (ak == nullptr || u == ai->v_now) return true;
 
     // priority inheritance
-    if (ak->v_next == nullptr && !funcPIBT(ak)) continue;
+    if (ak->v_next == nullptr && !funcPIBT(ak, preds)) continue;
 
     // success to plan next one step
     return true;
