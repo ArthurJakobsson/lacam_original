@@ -156,6 +156,10 @@ test_all: CMakeFiles/test_all.dir/tests/test_post_processing.cpp.o
 test_all: CMakeFiles/test_all.dir/build.make
 test_all: lacam/liblacam.a
 test_all: lib/libgtest.a
+test_all: /home/arthur/Home/MAPF_ML/libtorch/lib/libtorch.so
+test_all: /home/arthur/Home/MAPF_ML/libtorch/lib/libc10.so
+test_all: /home/arthur/Home/MAPF_ML/libtorch/lib/libc10.so
+test_all: /home/arthur/Home/MAPF_ML/libtorch/lib/libkineto.a
 test_all: CMakeFiles/test_all.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/arthur/Home/MAPF_ML/Github/ml-mapf/lacam/lacam_original/build_debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Linking CXX executable test_all"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/test_all.dir/link.txt --verbose=$(VERBOSE)

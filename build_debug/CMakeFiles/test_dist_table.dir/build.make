@@ -96,6 +96,10 @@ test_dist_table: CMakeFiles/test_dist_table.dir/third_party/googletest/googletes
 test_dist_table: CMakeFiles/test_dist_table.dir/build.make
 test_dist_table: lacam/liblacam.a
 test_dist_table: lib/libgtest.a
+test_dist_table: /home/arthur/Home/MAPF_ML/libtorch/lib/libtorch.so
+test_dist_table: /home/arthur/Home/MAPF_ML/libtorch/lib/libc10.so
+test_dist_table: /home/arthur/Home/MAPF_ML/libtorch/lib/libc10.so
+test_dist_table: /home/arthur/Home/MAPF_ML/libtorch/lib/libkineto.a
 test_dist_table: CMakeFiles/test_dist_table.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/arthur/Home/MAPF_ML/Github/ml-mapf/lacam/lacam_original/build_debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable test_dist_table"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/test_dist_table.dir/link.txt --verbose=$(VERBOSE)

@@ -1,5 +1,6 @@
 #include <argparse/argparse.hpp>
 #include <lacam.hpp>
+#include <torch/script.h>
 
 int main(int argc, char* argv[])
 {
@@ -25,6 +26,11 @@ int main(int argc, char* argv[])
   program.add_argument("-l", "--log_short")
       .default_value(false)
       .implicit_value(true);
+  program.add_argument("-M", "--model")
+      .help("model file")
+      .default_value(std::string("./models/best_train_Loss_model.pt"));
+    program.add_argument("-k", "--kval")
+      .default_value(4); //TODO <-- this could cause problems
 
   try {
     program.parse_known_args(argc, argv);
@@ -44,14 +50,26 @@ int main(int argc, char* argv[])
   const auto map_name = program.get<std::string>("map");
   const auto output_name = program.get<std::string>("output");
   const auto log_short = program.get<bool>("log_short");
+  const auto model_name = program.get<std::string>("model");
   const auto N = std::stoi(program.get<std::string>("num"));
   const auto ins = scen_name.size() > 0 ? Instance(scen_name, map_name, N)
                                         : Instance(map_name, &MT, N);
   if (!ins.is_valid(1)) return 1;
 
+  //setup model
+  torch::jit::script::Module module;
+  try {
+    // Deserialize the ScriptModule from a file using torch::jit::load().
+    module = torch::jit::load(model_name);
+  }
+  catch (const c10::Error& e) {
+    std::cerr << "error loading the model\n";
+    return -1;
+  }
+
   // solve
   const auto deadline = Deadline(time_limit_sec * 1000);
-  const auto solution = solve(ins, verbose - 1, &deadline, &MT);
+  const auto solution = solve(ins, verbose - 1, &deadline, &MT, &module);
   const auto comp_time_ms = deadline.elapsed_ms();
 
   // failure

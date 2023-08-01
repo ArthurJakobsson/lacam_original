@@ -96,6 +96,10 @@ test_planner: CMakeFiles/test_planner.dir/third_party/googletest/googletest/src/
 test_planner: CMakeFiles/test_planner.dir/build.make
 test_planner: lacam/liblacam.a
 test_planner: lib/libgtest.a
+test_planner: /home/arthur/Home/MAPF_ML/libtorch/lib/libtorch.so
+test_planner: /home/arthur/Home/MAPF_ML/libtorch/lib/libc10.so
+test_planner: /home/arthur/Home/MAPF_ML/libtorch/lib/libc10.so
+test_planner: /home/arthur/Home/MAPF_ML/libtorch/lib/libkineto.a
 test_planner: CMakeFiles/test_planner.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/arthur/Home/MAPF_ML/Github/ml-mapf/lacam/lacam_original/build_debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable test_planner"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/test_planner.dir/link.txt --verbose=$(VERBOSE)

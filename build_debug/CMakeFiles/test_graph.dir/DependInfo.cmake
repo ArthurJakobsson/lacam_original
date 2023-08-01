@@ -9,9 +9,19 @@ set(CMAKE_DEPENDS_CHECK_CXX
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")
 
+# Preprocessor definitions for this target.
+set(CMAKE_TARGET_DEFINITIONS_CXX
+  "USE_C10D_GLOO"
+  "USE_DISTRIBUTED"
+  "USE_RPC"
+  "USE_TENSORPIPE"
+  )
+
 # The include file search paths:
 set(CMAKE_CXX_TARGET_INCLUDE_PATH
   "../lacam/./include"
+  "/home/arthur/Home/MAPF_ML/libtorch/include"
+  "/home/arthur/Home/MAPF_ML/libtorch/include/torch/csrc/api/include"
   "../third_party/googletest/googletest/include"
   "../third_party/googletest/googletest"
   )

@@ -96,6 +96,10 @@ test_graph: CMakeFiles/test_graph.dir/third_party/googletest/googletest/src/gtes
 test_graph: CMakeFiles/test_graph.dir/build.make
 test_graph: lacam/liblacam.a
 test_graph: lib/libgtest.a
+test_graph: /home/arthur/Home/MAPF_ML/libtorch/lib/libtorch.so
+test_graph: /home/arthur/Home/MAPF_ML/libtorch/lib/libc10.so
+test_graph: /home/arthur/Home/MAPF_ML/libtorch/lib/libc10.so
+test_graph: /home/arthur/Home/MAPF_ML/libtorch/lib/libkineto.a
 test_graph: CMakeFiles/test_graph.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/arthur/Home/MAPF_ML/Github/ml-mapf/lacam/lacam_original/build_debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable test_graph"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/test_graph.dir/link.txt --verbose=$(VERBOSE)

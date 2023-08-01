@@ -96,6 +96,10 @@ test_instance: CMakeFiles/test_instance.dir/third_party/googletest/googletest/sr
 test_instance: CMakeFiles/test_instance.dir/build.make
 test_instance: lacam/liblacam.a
 test_instance: lib/libgtest.a
+test_instance: /home/arthur/Home/MAPF_ML/libtorch/lib/libtorch.so
+test_instance: /home/arthur/Home/MAPF_ML/libtorch/lib/libc10.so
+test_instance: /home/arthur/Home/MAPF_ML/libtorch/lib/libc10.so
+test_instance: /home/arthur/Home/MAPF_ML/libtorch/lib/libkineto.a
 test_instance: CMakeFiles/test_instance.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/arthur/Home/MAPF_ML/Github/ml-mapf/lacam/lacam_original/build_debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable test_instance"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/test_instance.dir/link.txt --verbose=$(VERBOSE)

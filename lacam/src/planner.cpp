@@ -1,6 +1,7 @@
 #include "../include/planner.hpp"
 #include <iostream>
 #include <map>
+#include <torch/script.h>
 
 Constraint::Constraint() : who(std::vector<int>()), where(Vertices()), depth(0)
 {
@@ -55,10 +56,11 @@ Node::~Node()
 }
 
 Planner::Planner(const Instance* _ins, const Deadline* _deadline,
-                 std::mt19937* _MT, int _verbose)
+                 std::mt19937* _MT, torch::jit::script::Module* _module, int _verbose)
     : ins(_ins),
       deadline(_deadline),
       MT(_MT),
+      module(_module),
       verbose(_verbose),
       N(ins->N),
       V_size(ins->G.size()),
@@ -100,8 +102,51 @@ std::vector<std::map<int, double>> createNbyFive (const int N,
   // don't do a torch tensor yet, do vector<vector<>>
 }
 
+// https://stackoverflow.com/questions/63466847/how-is-it-possible-to-convert-a-stdvectorstdvectordouble-to-a-torchten
+/* Returns 2D torch tensor */
+torch::Tensor getTensorFrom2DVecs(vector<vector<double>>& vec2D) {
+    int n = vec2D.size();
+    int m = vec2D[0].size();
+    auto options = torch::TensorOptions().dtype(at::kDouble);//at::kFloat);
+    torch::Tensor tensorAns = torch::zeros({n,m}, options);
+    for (int i = 0; i < n; ++i) {
+        tensorAns.slice(0,i,i+1) = torch::from_blob(vec2D[i].data(), {m}, options);
+    }
+
+    tensorAns = tensorAns.to(torch::kFloat);
+
+    return tensorAns;
+}
+
+at::Tensor Planner::inputs_to_torch(std::vector<std::vector<double>> grid,
+  std::vector<std::vector<double>> bd, std::vector<std::vector<std::vector<double>>> helper_bds,
+  std::vector<std::vector<double>> helper_loc, torch::jit::script::Module* module)
+{
+  torch::Tensor t_grid = getTensorFrom2DVecs(grid);
+  torch::Tensor t_bd = getTensorFrom2DVecs(bd);
+  torch::Tensor t_helper_bd;
+  for(int i = 0; i<4;i++)
+  {
+    torch::cat(t_helper_bd, getTensorFrom2DVecs(helper_bds[i]));
+  }
+  torch::Tensor t_helper_locs = getTensorFrom2DVecs(helper_loc);
+  //TODO: figure out how to pass into forward with both D by D and the locs (using stack?)
+  // look at pytorch implementation for how forward is called
+
+  std::vector<torch::jit::IValue> inputs;
+  torch::Tensor stacked = torch::stack({t_grid,t_bd,t_helper_bd[0],
+                            t_helper_bd[1], t_helper_bd[2], t_helper_bd[3]});
+  inputs.push_back(stacked);
+  inputs.push_back(t_helper_locs);
+
+  at::Tensor NN_out = module.forward(inputs).toTensor();
+  std::cout << NN_out.slice(/*dim=*/1, /*start=*/0, /*end=*/5) << '\n';
+  return NN_out;
+}
+
 Solution Planner::solve()
 {
+
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tstart search");
 
   // setup agents
@@ -263,19 +308,18 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
 
 
   //sort, note: K + 1 is sufficient <-- this is where the NN feeds in
-  // std::sort(C_next[i].begin(), C_next[i].begin() + K + 1,
-  //           [&](Vertex* const v, Vertex* const u) {
-  //             printf("hi");
-  //             return preds[i][v->id] <// + tie_breakers[v->id] <
-  //                     preds[i][u->id];// + tie_breakers[u->id];
-  //           });
-
-
   std::sort(C_next[i].begin(), C_next[i].begin() + K + 1,
             [&](Vertex* const v, Vertex* const u) {
-              return D.get(i,v) <// + tie_breakers[v->id] <
-                     D.get(i,u);// + tie_breakers[u->id];
+              return preds[i][v->id] + tie_breakers[v->id] <
+                      preds[i][u->id] + tie_breakers[u->id];
             });
+
+
+  // std::sort(C_next[i].begin(), C_next[i].begin() + K + 1,
+  //           [&](Vertex* const v, Vertex* const u) {
+  //             return D.get(i,v) <// + tie_breakers[v->id] <
+  //                    D.get(i,u);// + tie_breakers[u->id];
+  //           });
 
 
   // D.get  should become -> proposal[i][v->id] or equivalent access or proposal weights
@@ -317,9 +361,9 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
 
 
 Solution solve(const Instance& ins, const int verbose, const Deadline* deadline,
-               std::mt19937* MT)
+               std::mt19937* MT, torch::jit::script::Module* module)
 {
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tpre-processing");
-  auto planner = Planner(&ins, deadline, MT, verbose);
+  auto planner = Planner(&ins, deadline, MT, module, verbose);
   return planner.solve();
 }

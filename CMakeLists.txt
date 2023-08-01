@@ -1,13 +1,16 @@
 cmake_minimum_required(VERSION 3.16)
 project(lacam-project CXX)
 
+find_package(Torch REQUIRED)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+
 add_subdirectory(./lacam)
 add_subdirectory(./third_party/argparse)
 add_subdirectory(./third_party/googletest)
 
 add_executable(main main.cpp)
 target_compile_features(main PUBLIC cxx_std_17)
-target_link_libraries(main lacam argparse)
+target_link_libraries(main lacam argparse "${TORCH_LIBRARIES}")
 
 # test
 set(TEST_MAIN_FUNC ./third_party/googletest/googletest/src/gtest_main.cc)
@@ -26,3 +29,7 @@ add_test(test_post_processing ./tests/test_post_processing.cpp)
 
 add_executable(test_all ${TEST_ALL_SRC})
 target_link_libraries(test_all lacam gtest)
+
+
+
+

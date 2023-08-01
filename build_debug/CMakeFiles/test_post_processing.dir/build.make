@@ -96,6 +96,10 @@ test_post_processing: CMakeFiles/test_post_processing.dir/third_party/googletest
 test_post_processing: CMakeFiles/test_post_processing.dir/build.make
 test_post_processing: lacam/liblacam.a
 test_post_processing: lib/libgtest.a
+test_post_processing: /home/arthur/Home/MAPF_ML/libtorch/lib/libtorch.so
+test_post_processing: /home/arthur/Home/MAPF_ML/libtorch/lib/libc10.so
+test_post_processing: /home/arthur/Home/MAPF_ML/libtorch/lib/libc10.so
+test_post_processing: /home/arthur/Home/MAPF_ML/libtorch/lib/libkineto.a
 test_post_processing: CMakeFiles/test_post_processing.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/arthur/Home/MAPF_ML/Github/ml-mapf/lacam/lacam_original/build_debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Linking CXX executable test_post_processing"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/test_post_processing.dir/link.txt --verbose=$(VERBOSE)
