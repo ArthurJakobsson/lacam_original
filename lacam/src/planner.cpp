@@ -2,6 +2,10 @@
 #include <iostream>
 #include <map>
 #include <torch/script.h>
+#include <float.h>
+
+using torch::indexing::Slice;
+namespace F = torch::nn::functional;
 
 Constraint::Constraint() : who(std::vector<int>()), where(Vertices()), depth(0)
 {
@@ -56,12 +60,14 @@ Node::~Node()
 }
 
 Planner::Planner(const Instance* _ins, const Deadline* _deadline,
-                 std::mt19937* _MT, torch::jit::script::Module* _module, int _verbose)
+                 std::mt19937* _MT, torch::jit::script::Module* _module,
+                 int _k, int _verbose)
     : ins(_ins),
       deadline(_deadline),
       MT(_MT),
       module(_module),
       verbose(_verbose),
+      K(_k),
       N(ins->N),
       V_size(ins->G.size()),
       D(DistTable(ins)),
@@ -73,34 +79,6 @@ Planner::Planner(const Instance* _ins, const Deadline* _deadline,
 {
 }
 
-
-std::vector<std::map<int, double>> createNbyFive (const int N,
-                                                DistTable& D, const Vertices &C)
-{
-  // NN call here
-  // immediately convert tensor to 2d vector
-
-  // eliminate invalid to make it N by < 5
-
-  std::vector<std::map<int, double>> predictions;
-  predictions.resize(N);
-
-  //make it work given arbitrary N by 5
-  for(int i = 0; i<N; i++)
-  {
-    std::vector<Vertex*> c_next = C[i]->neighbor;
-    size_t next_size = c_next.size();
-    predictions[i][C[i]->id] = D.get(i, C[i]->id);
-    for(size_t j = 0; j < next_size; j++)
-    {
-      predictions[i][c_next[j]->id] = D.get(i, c_next[j]);
-    }
-  }
-  return predictions;
-
-  //use distance with D.get and then add some random noise to simulate
-  // don't do a torch tensor yet, do vector<vector<>>
-}
 
 // https://stackoverflow.com/questions/63466847/how-is-it-possible-to-convert-a-stdvectorstdvectordouble-to-a-torchten
 /* Returns 2D torch tensor */
@@ -118,21 +96,17 @@ torch::Tensor getTensorFrom2DVecs(vector<vector<double>>& vec2D) {
     return tensorAns;
 }
 
-at::Tensor Planner::inputs_to_torch(std::vector<std::vector<double>> grid,
-  std::vector<std::vector<double>> bd, std::vector<std::vector<std::vector<double>>> helper_bds,
-  std::vector<std::vector<double>> helper_loc, torch::jit::script::Module* module)
+at::Tensor Planner::inputs_to_torch(torch::Tensor grid, torch::Tensor bd,
+                    std::vector<int> helper_ids, torch::Tensor helper_loc)
 {
-  torch::Tensor t_grid = getTensorFrom2DVecs(grid);
-  torch::Tensor t_bd = getTensorFrom2DVecs(bd);
-  torch::Tensor t_helper_bd;
+  // torch::Tensor t_grid = getTensorFrom2DVecs(grid);
+  // torch::Tensor t_bd = getTensorFrom2DVecs(bd);
+  std::vector<torch::Tensor> t_helper_bd;
   for(int i = 0; i<4;i++)
   {
-    torch::cat(t_helper_bd, getTensorFrom2DVecs(helper_bds[i]));
+    t_helper_bd.push_back(getTensorFrom2DVecs(helper_bds[i]));
   }
   torch::Tensor t_helper_locs = getTensorFrom2DVecs(helper_loc);
-  //TODO: figure out how to pass into forward with both D by D and the locs (using stack?)
-  // look at pytorch implementation for how forward is called
-
   std::vector<torch::jit::IValue> inputs;
   torch::Tensor stacked = torch::stack({t_grid,t_bd,t_helper_bd[0],
                             t_helper_bd[1], t_helper_bd[2], t_helper_bd[3]});
@@ -144,6 +118,157 @@ at::Tensor Planner::inputs_to_torch(std::vector<std::vector<double>> grid,
   return NN_out;
 }
 
+torch::Tensor Planner::get_map()
+{
+  int width = ins->G->width;
+  int height = ins->G->height;
+  Vertices U = ins->G->U;
+
+  std::vector<std::vector<double>> grd;
+  grd.resize(N);
+  for (int i = 0; i < N; ++i)
+  {
+    grd[i].resize(N);
+  }
+
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      if(U[width * y + x] == nullptr) // put in 1 if obstacle, else 0
+      {
+        grd[x][y] = 1;
+      } else {
+        grd[x][y] = 0;
+      }
+    }
+  }
+  torch::Tensor t_grid = getTensorFrom2DVecs(grd);
+  // pad with 1's in every direction
+  t_grid = F::pad(t_grid, F::PadFuncOptions({K, K, K, K}).value(1));
+  return t_grid;
+}
+
+torch::Tensor Planner::get_bd(int a_id)
+{
+  int width = ins->G->width;
+  int height = ins->G->height;
+  Vertices U = ins->G->U;
+  Agent a = A[a_id];
+  int a_idx = a->index;
+
+  std::vector<std::vector<double>> bd;
+  bd.resize(N);
+  for (int i = 0; i < N; ++i)
+  {
+    bd[i].resize(N);
+  }
+
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      auto u = U[width * y + x]
+      if(U[width * y + x] == nullptr) // put in 1 if obstacle, else 0
+      {
+        bd[x][y] = 0;
+      } else {
+        bd[x][y] = D.get(a_id, u);
+      }
+    }
+  }
+  torch::Tensor t_bd = getTensorFrom2DVecs(bd);
+  // pad with 1's in every direction
+  t_bd = F::pad(t_bd, F::PadFuncOptions({K, K, K, K}).value(0));
+  return t_bd;
+}
+
+torch::Tensor bd_helper(std::vector<std::pair<int, std::pair<int,int>>> dist,
+                        int nth_help, int curr_size)
+{
+  if(nth_help+1 >= curr_size)
+  {
+    return torch::zeros({2*K+1, 2*K+1});
+  }
+  return bd[dist[nth_help].first].index({Slice((dist[nth_help].second).first - K, (dist[nth_help].second).first+K+1),
+	    Slice((dist[nth_help].second).second - K, (dist[nth_help].second).second + K + 1)});
+}
+
+std::vector<int> help_loc_helper(std::vector<std::pair<int, std::pair<int,int>>> dist,
+                        int nth_help, int curr_size)
+{
+  std::vector<int> point;
+  point.resize(2);
+  std::fill(point.begin(), point.end(), 0);
+  if(nth_help < curr_size)
+  {
+    point[0] = (dist[nth_help].second).first;
+    point[1] = (dist[nth_help].second).second;
+  }
+  return point;
+}
+
+std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
+{
+  // NN call here
+  // immediately convert tensor to 2d vector
+
+  // eliminate invalid to make it N by < 5
+
+  std::vector<std::map<int, double>> predictions;
+  predictions.resize(N);
+
+  //make it work given arbitrary N by 5
+  for(int i = 0; i<N; i++)
+  {
+    int width = ins->G->width
+    int curr_index = A[i]->index;
+    int curr_x = A[i] % width;
+    int curr_y = (curr_index - curr_x) / width;
+    torch::Tensor loc_grid = grid.index({Slice(curr_x - K, curr_x+K+1),
+											Slice(curr_y - K, curr_y + K + 1)});
+    torch::Tensor loc_bd =  bd[i].index({Slice(curr_x - K, curr_x+K+1),
+											Slice(curr_y - K, curr_y + K + 1)});
+    // get 4 nearest agents
+    std::vector<std::pair<int, std::pair<int,int>>> dist; //hold agt id, loc
+    int curr_size = 0;
+    for (int j = 0; j<N; j++)
+    {
+      int help_index = A[j]->index;
+      int help_x = A[j] % width;
+      int help_y = (help_index - help_x) / width;
+      if(curr_x-K <= help_x && curr_y + K +1 <= help_y)
+      {
+        curr_size+=1;
+        dist.resize(curr_size);
+        dist[i] = {j, {help_x, help_y}};
+      }
+    }
+    std::sort(dist.begin(), dist.end(),
+            [&](pair<int,int> W, pair<int,int> U) {
+              return (abs((W.second).first - curr_x) + abs((W.second).second - curr_y)) <
+                      (abs((U.second).first - curr_x) + abs((U.second).second - curr_y));
+            });
+    //sort distance and take indices [1][2][3][4] (0 is itself)
+    torch::Tensor help1_bd = bd_helper(dist, 1, curr_size);
+    torch::Tensor help2_bd = bd_helper(dist, 2, curr_size);
+    torch::Tensor help3_bd = bd_helper(dist, 3, curr_size);
+    torch::Tensor help4_bd = bd_helper(dist, 4, curr_size);
+    std::vector<int> help1_loc = help_loc_helper(dist, 1, curr_size);
+    std::vector<int> help2_loc = help_loc_helper(dist, 2, curr_size);
+    std::vector<int> help3_loc = help_loc_helper(dist, 3, curr_size);
+    std::vector<int> help4_loc = help_loc_helper(dist, 4, curr_size);
+
+    std::vector<Vertex*> c_next = C[i]->neighbor;
+    size_t next_size = c_next.size();
+    predictions[i][C[i]->id] = D.get(i, C[i]->id);
+    for(size_t j = 0; j < next_size; j++)
+    {
+      predictions[i][c_next[j]->id] = D.get(i, c_next[j]);
+    }
+  }
+  return predictions;
+
+  //use distance with D.get and then add some random noise to simulate
+  // don't do a torch tensor yet, do vector<vector<>>
+}
+
 Solution Planner::solve()
 {
 
@@ -151,6 +276,14 @@ Solution Planner::solve()
 
   // setup agents
   for (auto i = 0; i < N; ++i) A[i] = new Agent(i);
+
+  grid = get_map();
+  bd.resize(N);
+  for(int i = 0; i < N; ++i)
+  {
+    bd[i] = get_bd(i);
+  }
+
 
   // setup search queues
   std::stack<Node*> OPEN;
@@ -276,7 +409,9 @@ bool Planner::get_new_config(Node* S, Constraint* M) //Node contains the N by 5
     occupied_next[l] = A[i];
   }
 
-  std::vector<std::map<int,double>> preds = createNbyFive(N, D, S->C); //change this to only have effect on PIBT
+  //cache Nby5;
+
+  std::vector<std::map<int,double>> preds = createNbyFive(S->C); //change this to only have effect on PIBT
   // perform PIBT
   for (auto k : S->order) {
     auto a = A[k];
@@ -289,7 +424,7 @@ bool Planner::get_new_config(Node* S, Constraint* M) //Node contains the N by 5
 bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pass in proposals N by <=5 table
 {
   const auto i = ai->id;
-  const auto K = ai->v_now->neighbor.size();
+  const auto Ks = ai->v_now->neighbor.size();
 
 
   //get NN inputs should get passed from above
@@ -298,17 +433,17 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
   //post process output predictions to ordered tentative location
 
   // get candidates for next locations <-- dont need this section
-  for (size_t k = 0; k < K; ++k) {
+  for (size_t k = 0; k < Ks; ++k) {
     auto u = ai->v_now->neighbor[k];
     C_next[i][k] = u;
     if (MT != nullptr)
       tie_breakers[u->id] = get_random_float(MT);  // set tie-breaker
   }
-  C_next[i][K] = ai->v_now;
+  C_next[i][Ks] = ai->v_now;
 
 
   //sort, note: K + 1 is sufficient <-- this is where the NN feeds in
-  std::sort(C_next[i].begin(), C_next[i].begin() + K + 1,
+  std::sort(C_next[i].begin(), C_next[i].begin() + Ks + 1,
             [&](Vertex* const v, Vertex* const u) {
               return preds[i][v->id] + tie_breakers[v->id] <
                       preds[i][u->id] + tie_breakers[u->id];
@@ -328,7 +463,7 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
 
   // replace D with sort by  1 by <=5 (greedily choose best option for my current agent)
 
-  for (size_t k = 0; k < K + 1; ++k) {
+  for (size_t k = 0; k < Ks + 1; ++k) {
     auto u = C_next[i][k];
 
     // avoid vertex conflicts
@@ -361,9 +496,9 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
 
 
 Solution solve(const Instance& ins, const int verbose, const Deadline* deadline,
-               std::mt19937* MT, torch::jit::script::Module* module)
+               std::mt19937* MT, torch::jit::script::Module* module, int k)
 {
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tpre-processing");
-  auto planner = Planner(&ins, deadline, MT, module, verbose);
+  auto planner = Planner(&ins, deadline, MT, module, k, verbose);
   return planner.solve();
 }

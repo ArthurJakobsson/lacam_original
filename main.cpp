@@ -30,7 +30,7 @@ int main(int argc, char* argv[])
       .help("model file")
       .default_value(std::string("./models/best_train_Loss_model.pt"));
     program.add_argument("-k", "--kval")
-      .default_value(4); //TODO <-- this could cause problems
+      .default_value(std::string("4")); //TODO <-- this could cause problems
 
   try {
     program.parse_known_args(argc, argv);
@@ -51,6 +51,7 @@ int main(int argc, char* argv[])
   const auto output_name = program.get<std::string>("output");
   const auto log_short = program.get<bool>("log_short");
   const auto model_name = program.get<std::string>("model");
+  const auto k = std::stoi(program.get<std::string>("kval"));
   const auto N = std::stoi(program.get<std::string>("num"));
   const auto ins = scen_name.size() > 0 ? Instance(scen_name, map_name, N)
                                         : Instance(map_name, &MT, N);
@@ -69,7 +70,7 @@ int main(int argc, char* argv[])
 
   // solve
   const auto deadline = Deadline(time_limit_sec * 1000);
-  const auto solution = solve(ins, verbose - 1, &deadline, &MT, &module);
+  const auto solution = solve(ins, verbose - 1, &deadline, &MT, &module, k);
   const auto comp_time_ms = deadline.elapsed_ms();
 
   // failure

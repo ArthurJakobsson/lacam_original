@@ -8,6 +8,7 @@
 #include "instance.hpp"
 #include "utils.hpp"
 #include <torch/script.h>
+#include <float.h>
 
 // low-level search node
 struct Constraint {
@@ -58,6 +59,7 @@ struct Planner {
   const int verbose;
 
   // solver utils
+  const int K;
   const int N;  // number of agents
   const int V_size;
   DistTable D;
@@ -66,12 +68,16 @@ struct Planner {
   Agents A;
   Agents occupied_now;   // for quick collision checking
   Agents occupied_next;  // for quick collision checking
+  torch::Tensor grid;
+  std::vector<torch::Tensor> bd;
 
   Planner(const Instance* _ins, const Deadline* _deadline, std::mt19937* _MT,
           torch::jit::script::Module* _module, int _verbose = 0);
-  at::Tensor inputs_to_torch(std::vector<std::vector<double>> grid,
-  std::vector<std::vector<double>> bd, std::vector<std::vector<std::vector<double>>> helper_bds,
-  std::vector<std::vector<double>> helper_loc, torch::jit::script::Module* module);
+  std::vector<std::map<int, double>> createNbyFive (const Vertices &C);
+  torch::Tensor get_map();
+  torch::Tensor get_bd(int a_id);
+  at::Tensor inputs_to_torch(torch::Tensor grid,
+  torch::Tensor bd, std::vector<int> helper_ids, torch::Tensor helper_loc);
   Solution solve();
   bool get_new_config(Node* S, Constraint* M);
   bool funcPIBT(Agent* ai,std::vector<std::map<int,double>> &preds);
