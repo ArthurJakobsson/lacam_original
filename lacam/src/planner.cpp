@@ -1,6 +1,7 @@
 #include "../include/planner.hpp"
 #include <iostream>
 #include <map>
+#include <torch/torch.h>
 #include <torch/script.h>
 #include <float.h>
 
@@ -82,7 +83,7 @@ Planner::Planner(const Instance* _ins, const Deadline* _deadline,
 
 // https://stackoverflow.com/questions/63466847/how-is-it-possible-to-convert-a-stdvectorstdvectordouble-to-a-torchten
 /* Returns 2D torch tensor */
-torch::Tensor getTensorFrom2DVecs(vector<vector<double>>& vec2D) {
+torch::Tensor getTensorFrom2DVecs(std::vector<std::vector<double>>& vec2D) {
     int n = vec2D.size();
     int m = vec2D[0].size();
     auto options = torch::TensorOptions().dtype(at::kDouble);//at::kFloat);
@@ -96,33 +97,26 @@ torch::Tensor getTensorFrom2DVecs(vector<vector<double>>& vec2D) {
     return tensorAns;
 }
 
-at::Tensor Planner::inputs_to_torch(torch::Tensor grid, torch::Tensor bd,
-                    std::vector<int> helper_ids, torch::Tensor helper_loc)
+at::Tensor Planner::inputs_to_torch(torch::Tensor& t_grid, torch::Tensor& t_bd,
+            std::vector<torch::Tensor>& helper_bds, std::vector<std::vector<double>>& helper_loc)
 {
-  // torch::Tensor t_grid = getTensorFrom2DVecs(grid);
-  // torch::Tensor t_bd = getTensorFrom2DVecs(bd);
-  std::vector<torch::Tensor> t_helper_bd;
-  for(int i = 0; i<4;i++)
-  {
-    t_helper_bd.push_back(getTensorFrom2DVecs(helper_bds[i]));
-  }
-  torch::Tensor t_helper_locs = getTensorFrom2DVecs(helper_loc);
   std::vector<torch::jit::IValue> inputs;
-  torch::Tensor stacked = torch::stack({t_grid,t_bd,t_helper_bd[0],
-                            t_helper_bd[1], t_helper_bd[2], t_helper_bd[3]});
-  inputs.push_back(stacked);
-  inputs.push_back(t_helper_locs);
 
-  at::Tensor NN_out = module.forward(inputs).toTensor();
+  torch::Tensor stacked = torch::stack({t_grid, t_bd, helper_bds[0],
+                            helper_bds[1], helper_bds[2], helper_bds[3]});
+  inputs.push_back(stacked);
+  inputs.push_back(torch::flatten(getTensorFrom2DVecs(helper_loc)));
+  std::cout << inputs << std::endl;
+  at::Tensor NN_out = (*module).forward(inputs).toTensor();
   std::cout << NN_out.slice(/*dim=*/1, /*start=*/0, /*end=*/5) << '\n';
   return NN_out;
 }
 
 torch::Tensor Planner::get_map()
 {
-  int width = ins->G->width;
-  int height = ins->G->height;
-  Vertices U = ins->G->U;
+  int width = ins->G.width;
+  int height = ins->G.height;
+  Vertices U = ins->G.U;
 
   std::vector<std::vector<double>> grd;
   grd.resize(N);
@@ -149,11 +143,9 @@ torch::Tensor Planner::get_map()
 
 torch::Tensor Planner::get_bd(int a_id)
 {
-  int width = ins->G->width;
-  int height = ins->G->height;
-  Vertices U = ins->G->U;
-  Agent a = A[a_id];
-  int a_idx = a->index;
+  int width = ins->G.width;
+  int height = ins->G.height;
+  Vertices U = ins->G.U;
 
   std::vector<std::vector<double>> bd;
   bd.resize(N);
@@ -164,7 +156,7 @@ torch::Tensor Planner::get_bd(int a_id)
 
   for (int y = 0; y < height; ++y) {
     for (int x = 0; x < width; ++x) {
-      auto u = U[width * y + x]
+      auto u = U[width * y + x];
       if(U[width * y + x] == nullptr) // put in 1 if obstacle, else 0
       {
         bd[x][y] = 0;
@@ -179,21 +171,24 @@ torch::Tensor Planner::get_bd(int a_id)
   return t_bd;
 }
 
-torch::Tensor bd_helper(std::vector<std::pair<int, std::pair<int,int>>> dist,
+torch::Tensor Planner::bd_helper(std::vector<std::pair<int, std::pair<int,int>>>& dist,
                         int nth_help, int curr_size)
 {
   if(nth_help+1 >= curr_size)
   {
-    return torch::zeros({2*K+1, 2*K+1});
+
+    std::vector<std::vector<double> > vec(2*K+1,
+          std::vector<double>(2*K+1));
+    return getTensorFrom2DVecs(vec);
   }
   return bd[dist[nth_help].first].index({Slice((dist[nth_help].second).first - K, (dist[nth_help].second).first+K+1),
 	    Slice((dist[nth_help].second).second - K, (dist[nth_help].second).second + K + 1)});
 }
 
-std::vector<int> help_loc_helper(std::vector<std::pair<int, std::pair<int,int>>> dist,
+std::vector<double> help_loc_helper(std::vector<std::pair<int, std::pair<int,int>>>& dist,
                         int nth_help, int curr_size)
 {
-  std::vector<int> point;
+  std::vector<double> point;
   point.resize(2);
   std::fill(point.begin(), point.end(), 0);
   if(nth_help < curr_size)
@@ -217,43 +212,45 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
   //make it work given arbitrary N by 5
   for(int i = 0; i<N; i++)
   {
-    int width = ins->G->width
-    int curr_index = A[i]->index;
-    int curr_x = A[i] % width;
+    int width = ins->G.width;
+    int curr_index = A[i]->v_now->index;
+    int curr_x = curr_index % width;
     int curr_y = (curr_index - curr_x) / width;
     torch::Tensor loc_grid = grid.index({Slice(curr_x - K, curr_x+K+1),
 											Slice(curr_y - K, curr_y + K + 1)});
     torch::Tensor loc_bd =  bd[i].index({Slice(curr_x - K, curr_x+K+1),
 											Slice(curr_y - K, curr_y + K + 1)});
     // get 4 nearest agents
-    std::vector<std::pair<int, std::pair<int,int>>> dist; //hold agt id, loc
+    std::vector<std::pair<int, std::pair<int,int>>> locs; //hold agt id, loc
     int curr_size = 0;
     for (int j = 0; j<N; j++)
     {
-      int help_index = A[j]->index;
-      int help_x = A[j] % width;
+      int help_index = A[j]->v_now->index;
+      int help_x = help_index % width;
       int help_y = (help_index - help_x) / width;
-      if(curr_x-K <= help_x && curr_y + K +1 <= help_y)
+      if(curr_x-K <= help_x && curr_y + K +1 >= help_y)
       {
         curr_size+=1;
-        dist.resize(curr_size);
-        dist[i] = {j, {help_x, help_y}};
+        locs.resize(curr_size);
+        locs[curr_size-1] = {j, {help_x, help_y}};
       }
     }
-    std::sort(dist.begin(), dist.end(),
-            [&](pair<int,int> W, pair<int,int> U) {
+    std::sort(locs.begin(), locs.end(),
+            [&](std::pair<int, std::pair<int,int>> W, std::pair<int,std::pair<int,int>> U) {
               return (abs((W.second).first - curr_x) + abs((W.second).second - curr_y)) <
                       (abs((U.second).first - curr_x) + abs((U.second).second - curr_y));
             });
+    std::vector<torch::Tensor> help_bd;
+    help_bd.resize(4);
     //sort distance and take indices [1][2][3][4] (0 is itself)
-    torch::Tensor help1_bd = bd_helper(dist, 1, curr_size);
-    torch::Tensor help2_bd = bd_helper(dist, 2, curr_size);
-    torch::Tensor help3_bd = bd_helper(dist, 3, curr_size);
-    torch::Tensor help4_bd = bd_helper(dist, 4, curr_size);
-    std::vector<int> help1_loc = help_loc_helper(dist, 1, curr_size);
-    std::vector<int> help2_loc = help_loc_helper(dist, 2, curr_size);
-    std::vector<int> help3_loc = help_loc_helper(dist, 3, curr_size);
-    std::vector<int> help4_loc = help_loc_helper(dist, 4, curr_size);
+    std::vector<std::vector<double>> helper_loc;
+    helper_loc.resize(4);
+    for(int i = 0; i < 4; i++)
+    {
+      helper_loc[i] = help_loc_helper(locs, i, curr_size);
+      help_bd[i] = bd_helper(locs, i, curr_size);
+    }
+    at::Tensor NN_result = inputs_to_torch(loc_grid, loc_bd, help_bd, helper_loc);
 
     std::vector<Vertex*> c_next = C[i]->neighbor;
     size_t next_size = c_next.size();
@@ -283,7 +280,6 @@ Solution Planner::solve()
   {
     bd[i] = get_bd(i);
   }
-
 
   // setup search queues
   std::stack<Node*> OPEN;

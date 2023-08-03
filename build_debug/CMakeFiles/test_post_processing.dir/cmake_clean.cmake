@@ -1,6 +1,8 @@
 file(REMOVE_RECURSE
   "CMakeFiles/test_post_processing.dir/tests/test_post_processing.cpp.o"
+  "CMakeFiles/test_post_processing.dir/tests/test_post_processing.cpp.o.d"
   "CMakeFiles/test_post_processing.dir/third_party/googletest/googletest/src/gtest_main.cc.o"
+  "CMakeFiles/test_post_processing.dir/third_party/googletest/googletest/src/gtest_main.cc.o.d"
   "test_post_processing"
   "test_post_processing.pdb"
 )

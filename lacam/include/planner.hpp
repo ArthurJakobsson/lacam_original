@@ -7,6 +7,7 @@
 #include "graph.hpp"
 #include "instance.hpp"
 #include "utils.hpp"
+#include <torch/torch.h>
 #include <torch/script.h>
 #include <float.h>
 
@@ -72,12 +73,14 @@ struct Planner {
   std::vector<torch::Tensor> bd;
 
   Planner(const Instance* _ins, const Deadline* _deadline, std::mt19937* _MT,
-          torch::jit::script::Module* _module, int _verbose = 0);
+          torch::jit::script::Module* _module, int _k = 4, int _verbose = 0);
   std::vector<std::map<int, double>> createNbyFive (const Vertices &C);
   torch::Tensor get_map();
   torch::Tensor get_bd(int a_id);
-  at::Tensor inputs_to_torch(torch::Tensor grid,
-  torch::Tensor bd, std::vector<int> helper_ids, torch::Tensor helper_loc);
+  torch::Tensor bd_helper(std::vector<std::pair<int, std::pair<int,int>>>& dist,
+                        int nth_help, int curr_size);
+  at::Tensor inputs_to_torch(torch::Tensor& t_grid, torch::Tensor& t_bd,
+  std::vector<torch::Tensor>& helper_bds, std::vector<std::vector<double>>& helper_loc);
   Solution solve();
   bool get_new_config(Node* S, Constraint* M);
   bool funcPIBT(Agent* ai,std::vector<std::map<int,double>> &preds);
@@ -86,4 +89,4 @@ struct Planner {
 // main function
 Solution solve(const Instance& ins, const int verbose = 0,
                const Deadline* deadline = nullptr, std::mt19937* MT = nullptr,
-               torch::jit::script::Module* _module = nullptr);
+               torch::jit::script::Module* _module = nullptr, int k = 4);
