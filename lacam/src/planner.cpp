@@ -101,12 +101,10 @@ at::Tensor Planner::inputs_to_torch(torch::Tensor& t_grid, torch::Tensor& t_bd,
             std::vector<torch::Tensor>& helper_bds, std::vector<std::vector<double>>& helper_loc)
 {
   std::vector<torch::jit::IValue> inputs;
-
   torch::Tensor stacked = torch::stack({t_grid, t_bd, helper_bds[0],
                             helper_bds[1], helper_bds[2], helper_bds[3]});
-  inputs.push_back(stacked);
-  inputs.push_back(torch::flatten(getTensorFrom2DVecs(helper_loc)));
-  std::cout << inputs << std::endl;
+  inputs.push_back(stacked.unsqueeze(0)); // (6,9,9) --> (1,6,9,9)
+  inputs.push_back(torch::flatten(getTensorFrom2DVecs(helper_loc)).unsqueeze(0)); // (8) --> (1,8)
   at::Tensor NN_out = (*module).forward(inputs).toTensor();
   std::cout << NN_out.slice(/*dim=*/1, /*start=*/0, /*end=*/5) << '\n';
   return NN_out;
