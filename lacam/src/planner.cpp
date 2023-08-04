@@ -179,8 +179,8 @@ torch::Tensor Planner::bd_helper(std::vector<std::pair<int, std::pair<int,int>>>
           std::vector<double>(2*K+1));
     return getTensorFrom2DVecs(vec);
   }
-  return bd[dist[nth_help].first].index({Slice((dist[nth_help].second).first - K, (dist[nth_help].second).first+K+1),
-	    Slice((dist[nth_help].second).second - K, (dist[nth_help].second).second + K + 1)});
+  return bd[dist[nth_help].first].index({Slice((dist[nth_help].second).first, (dist[nth_help].second).first+2*K+1),
+	    Slice((dist[nth_help].second).second, (dist[nth_help].second).second + 2*K + 1)});
 }
 
 std::vector<double> help_loc_helper(std::vector<std::pair<int, std::pair<int,int>>>& dist,
@@ -214,13 +214,12 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     int curr_index = A[i]->v_now->index;
     int curr_x = curr_index % width;
     int curr_y = (curr_index - curr_x) / width;
-    torch::Tensor loc_grid = grid.index({Slice(curr_x - K, curr_x+K+1),
-											Slice(curr_y - K, curr_y + K + 1)});
-    torch::Tensor loc_bd =  bd[i].index({Slice(curr_x - K, curr_x+K+1),
-											Slice(curr_y - K, curr_y + K + 1)});
+    torch::Tensor loc_grid = grid.index({Slice(curr_x, curr_x+2*K+1),
+											Slice(curr_y, curr_y + 2*K + 1)});
+    torch::Tensor loc_bd =  bd[i].index({Slice(curr_x, curr_x+2*K+1),
+											Slice(curr_y, curr_y + 2*K + 1)});
     // get 4 nearest agents
     std::vector<std::pair<int, std::pair<int,int>>> locs; //hold agt id, loc
-    int curr_size = 0;
     for (int j = 0; j<N; j++)
     {
       int help_index = A[j]->v_now->index;
@@ -228,9 +227,7 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
       int help_y = (help_index - help_x) / width;
       if(curr_x-K <= help_x && curr_y + K +1 >= help_y)
       {
-        curr_size+=1;
-        locs.resize(curr_size);
-        locs[curr_size-1] = {j, {help_x, help_y}};
+        locs.push_back({j, {help_x, help_y}});
       }
     }
     std::sort(locs.begin(), locs.end(),
@@ -245,9 +242,10 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     helper_loc.resize(4);
     for(int i = 0; i < 4; i++)
     {
-      helper_loc[i] = help_loc_helper(locs, i, curr_size);
-      help_bd[i] = bd_helper(locs, i, curr_size);
+      helper_loc[i] = help_loc_helper(locs, i, locs.size());
+      help_bd[i] = bd_helper(locs, i, locs.size());
     }
+    std::cout << curr_x << " " << curr_y <<std::endl;
     at::Tensor NN_result = inputs_to_torch(loc_grid, loc_bd, help_bd, helper_loc);
 
     std::vector<Vertex*> c_next = C[i]->neighbor;
