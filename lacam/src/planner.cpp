@@ -106,7 +106,7 @@ at::Tensor Planner::inputs_to_torch(torch::Tensor& t_grid, torch::Tensor& t_bd,
   inputs.push_back(stacked.unsqueeze(0)); // (6,9,9) --> (1,6,9,9)
   inputs.push_back(torch::flatten(getTensorFrom2DVecs(helper_loc)).unsqueeze(0)); // (8) --> (1,8)
   at::Tensor NN_out = (*module).forward(inputs).toTensor();
-  std::cout << NN_out.slice(/*dim=*/1, /*start=*/0, /*end=*/5) << '\n';
+  // std::cout << NN_out.slice(/*dim=*/1, /*start=*/0, /*end=*/5) << '\n';
   return NN_out;
 }
 
@@ -208,15 +208,16 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
   predictions.resize(N);
 
   //make it work given arbitrary N by 5
-  for(int i = 0; i<N; i++)
+  for(int a_id = 0; a_id<N; a_id++)
   {
     int width = ins->G.width;
-    int curr_index = A[i]->v_now->index;
+    int height = ins->G.height;
+    int curr_index = A[a_id]->v_now->index;
     int curr_x = curr_index % width;
     int curr_y = (curr_index - curr_x) / width;
     torch::Tensor loc_grid = grid.index({Slice(curr_x, curr_x+2*K+1),
 											Slice(curr_y, curr_y + 2*K + 1)});
-    torch::Tensor loc_bd =  bd[i].index({Slice(curr_x, curr_x+2*K+1),
+    torch::Tensor loc_bd =  bd[a_id].index({Slice(curr_x, curr_x+2*K+1),
 											Slice(curr_y, curr_y + 2*K + 1)});
     // get 4 nearest agents
     std::vector<std::pair<int, std::pair<int,int>>> locs; //hold agt id, loc
@@ -245,16 +246,40 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
       helper_loc[i] = help_loc_helper(locs, i, locs.size());
       help_bd[i] = bd_helper(locs, i, locs.size());
     }
-    std::cout << curr_x << " " << curr_y <<std::endl;
     at::Tensor NN_result = inputs_to_torch(loc_grid, loc_bd, help_bd, helper_loc);
 
-    std::vector<Vertex*> c_next = C[i]->neighbor;
-    size_t next_size = c_next.size();
-    predictions[i][C[i]->id] = D.get(i, C[i]->id);
-    for(size_t j = 0; j < next_size; j++)
+    std::vector<double> v_NN_res(NN_result.data_ptr<float>(), NN_result.data_ptr<float>() + NN_result.numel());
+    //   if label[0] == 0 and label[1] == 0: index = 0
+    //    elif label[0] == 0 and label[1] == 1: index = 1
+        // elif label[0] == 1 and label[1] == 0: index = 2
+        // elif label[0] == -1 and label[1] == 0: index = 3
+        // else: index = 4
+    Vertices U = ins->G.U;
+
+    // agent location add for "no action"
+    predictions[a_id][U[width * curr_y + curr_x]->id] = v_NN_res[0];
+    int delta_y[4] = {1, -1, 0, 0}; //up down left right
+    int delta_x[4] = {0, 0, -1, 1}; //up down left right
+    int nn_index[4] = {1, 4, 3, 2};
+    for(int j = 0; j<4; j++)
     {
-      predictions[i][c_next[j]->id] = D.get(i, c_next[j]);
+      int this_y = curr_y+delta_y[j];
+      int this_x = curr_x+delta_x[j];
+      if(this_y<0 || this_x<0 || this_x>=width || this_y >= height) continue;
+      auto location = U[width * (this_y) + (this_x)];
+      if(location!=nullptr)
+      {
+        predictions[a_id][location->id] = v_NN_res[nn_index[j]];
+      }
     }
+    // working example with using D.get inputs (recreate LaCAM)
+    // std::vector<Vertex*> c_next = C[i]->neighbor;
+    // size_t next_size = c_next.size();
+    // predictions[i][C[i]->id] = D.get(i, C[i]->id);
+    // for(size_t j = 0; j < next_size; j++)
+    // {
+    //   predictions[i][c_next[j]->id] = D.get(i, c_next[j]);
+    // }
   }
   return predictions;
 
