@@ -199,15 +199,9 @@ std::vector<double> help_loc_helper(std::vector<std::pair<int, std::pair<int,int
 
 std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
 {
-  // NN call here
-  // immediately convert tensor to 2d vector
-
-  // eliminate invalid to make it N by < 5
-
   std::vector<std::map<int, double>> predictions;
   predictions.resize(N);
 
-  //make it work given arbitrary N by 5
   for(int a_id = 0; a_id<N; a_id++)
   {
     int width = ins->G.width;
@@ -282,9 +276,6 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     // }
   }
   return predictions;
-
-  //use distance with D.get and then add some random noise to simulate
-  // don't do a torch tensor yet, do vector<vector<>>
 }
 
 Solution Planner::solve()
@@ -351,10 +342,10 @@ Solution Planner::solve()
       C.push_back(S->C[i]);
       if (MT != nullptr) std::shuffle(C.begin(), C.end(), *MT);  // randomize
       //insert based on order of C
-      //setup caching system for node
       for (auto u : C) S->search_tree.push(new Constraint(M, i, u));
     }
 
+    //setup caching system for node
     // only do if the high level node is new:
     // std::vector<std::vector<double>> preds = createNbyFive(N, D, S->C); //change this to only have effect on PIBT
     // each high level node should store the proposals
@@ -392,7 +383,7 @@ Solution Planner::solve()
 
 bool Planner::get_new_config(Node* S, Constraint* M) //Node contains the N by 5
 {
-  // setup cache: CHECK maybe GONE
+  // setup cache
   for (auto a : A) {
     // clear previous cache
     if (a->v_now != nullptr && occupied_now[a->v_now->id] == a) {
@@ -408,7 +399,7 @@ bool Planner::get_new_config(Node* S, Constraint* M) //Node contains the N by 5
     occupied_now[a->v_now->id] = a;
   }
 
-  // add constraints : EDIT
+  // add constraints
   for (auto k = 0; k < M->depth; ++k) {
     const auto i = M->who[k];        // agent
     const auto l = M->where[k]->id;  // loc
@@ -427,8 +418,17 @@ bool Planner::get_new_config(Node* S, Constraint* M) //Node contains the N by 5
   }
 
   //cache Nby5;
+  std::vector<std::map<int,double>> preds;
+  if(S->predictions.empty())
+  {
+    //cache old predictions
+    preds = createNbyFive(S->C);
+    S->predictions = preds;
+  } else {
+    preds = S->predictions;
+  }
 
-  std::vector<std::map<int,double>> preds = createNbyFive(S->C); //change this to only have effect on PIBT
+
   // perform PIBT
   for (auto k : S->order) {
     auto a = A[k];

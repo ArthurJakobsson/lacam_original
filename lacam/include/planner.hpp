@@ -33,7 +33,7 @@ struct Node {
   std::vector<std::vector<double>>  action_ranking;
 
   //store predictions here
-
+  std::vector<std::map<int,double>> predictions;
 
   Node(Config _C, DistTable& D, Node* _parent = nullptr);
   ~Node();

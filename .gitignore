@@ -37,7 +37,10 @@
 
 # End of https://www.toptal.com/developers/gitignore/api/c++
 **/.DS_Store
-**/build/
+**/build/*
 Manifest.toml
 map
-**/build_debug/
+**/build_debug/*
+build_debug/*
+.gitignore
+
