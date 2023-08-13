@@ -2,6 +2,7 @@
 #include <lacam.hpp>
 #include <torch/script.h>
 
+
 int main(int argc, char* argv[])
 {
   // arguments parser
@@ -28,9 +29,11 @@ int main(int argc, char* argv[])
       .implicit_value(true);
   program.add_argument("-M", "--model")
       .help("model file")
-      .default_value(std::string("./models/best_train_Loss_model.pt"));
-    program.add_argument("-k", "--kval")
+      .default_value(std::string("./models/91_val_paris.pt"));
+  program.add_argument("-k", "--kval")
       .default_value(std::string("4")); //TODO <-- this could cause problems
+  program.add_argument("-n", "--neural_flag")
+      .default_value(std::string("true")); //TODO <-- this could cause problems
 
   try {
     program.parse_known_args(argc, argv);
@@ -55,6 +58,7 @@ int main(int argc, char* argv[])
   const auto N = std::stoi(program.get<std::string>("num"));
   const auto ins = scen_name.size() > 0 ? Instance(scen_name, map_name, N)
                                         : Instance(map_name, &MT, N);
+  bool neural_flag = program.get<std::string>("neural_flag") == "true";
   if (!ins.is_valid(1)) return 1;
 
   //setup model
@@ -70,7 +74,7 @@ int main(int argc, char* argv[])
 
   // solve
   const auto deadline = Deadline(time_limit_sec * 1000);
-  const auto solution = solve(ins, verbose - 1, &deadline, &MT, &module, k);
+  const auto solution = solve(ins, verbose - 1, &deadline, &MT, &module, k, neural_flag);
   const auto comp_time_ms = deadline.elapsed_ms();
 
   // failure

@@ -42,5 +42,5 @@ Manifest.toml
 map
 **/build_debug/*
 build_debug/*
-.gitignore
-
+assets/*
+models/*

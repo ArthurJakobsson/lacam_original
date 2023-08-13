@@ -62,7 +62,7 @@ Node::~Node()
 
 Planner::Planner(const Instance* _ins, const Deadline* _deadline,
                  std::mt19937* _MT, torch::jit::script::Module* _module,
-                 int _k, int _verbose)
+                 int _k, int _verbose, bool _neural_flag)
     : ins(_ins),
       deadline(_deadline),
       MT(_MT),
@@ -76,7 +76,9 @@ Planner::Planner(const Instance* _ins, const Deadline* _deadline,
       tie_breakers(std::vector<float>(V_size, 0)),
       A(Agents(N, nullptr)),
       occupied_now(Agents(V_size, nullptr)),
-      occupied_next(Agents(V_size, nullptr))
+      occupied_next(Agents(V_size, nullptr)),
+      cache_hit(0),
+      neural_flag(_neural_flag)
 {
 }
 
@@ -117,10 +119,10 @@ torch::Tensor Planner::get_map()
   Vertices U = ins->G.U;
 
   std::vector<std::vector<double>> grd;
-  grd.resize(N);
-  for (int i = 0; i < N; ++i)
+  grd.resize(width);
+  for (int i = 0; i < width; ++i)
   {
-    grd[i].resize(N);
+    grd[i].resize(height);
   }
 
   for (int y = 0; y < height; ++y) {
@@ -146,10 +148,10 @@ torch::Tensor Planner::get_bd(int a_id)
   Vertices U = ins->G.U;
 
   std::vector<std::vector<double>> bd;
-  bd.resize(N);
-  for (int i = 0; i < N; ++i)
+  bd.resize(width);
+  for (int i = 0; i < width; ++i)
   {
-    bd[i].resize(N);
+    bd[i].resize(height);
   }
 
   for (int y = 0; y < height; ++y) {
@@ -368,7 +370,7 @@ Solution Planner::solve()
     OPEN.push(S_new);
     CLOSED[S_new->C] = S_new;
   }
-
+  std::cout << "cache_hit:"<< cache_hit << " total_nodes_opened: " << loop_cnt << std::endl;
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\t",
        solution.empty() ? (OPEN.empty() ? "no solution" : "failed")
                         : "solution found",
@@ -418,21 +420,19 @@ bool Planner::get_new_config(Node* S, Constraint* M) //Node contains the N by 5
   }
 
   //cache Nby5;
-  std::vector<std::map<int,double>> preds;
   if(S->predictions.empty())
   {
     //cache old predictions
-    preds = createNbyFive(S->C);
-    S->predictions = preds;
+    S->predictions = createNbyFive(S->C);
   } else {
-    preds = S->predictions;
+    cache_hit+=1;
   }
 
 
   // perform PIBT
   for (auto k : S->order) {
     auto a = A[k];
-    if (a->v_next == nullptr && !funcPIBT(a, preds)) return false;  // planning failure
+    if (a->v_next == nullptr && !funcPIBT(a, S->predictions)) return false;  // planning failure
   }
   return true;
 }
@@ -458,20 +458,24 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
   }
   C_next[i][Ks] = ai->v_now;
 
+  //make this easily toggleable
 
-  //sort, note: K + 1 is sufficient <-- this is where the NN feeds in
-  std::sort(C_next[i].begin(), C_next[i].begin() + Ks + 1,
+  if(neural_flag)
+  {
+    //sort by NN
+    std::sort(C_next[i].begin(), C_next[i].begin() + Ks + 1,
             [&](Vertex* const v, Vertex* const u) {
               return preds[i][v->id] + tie_breakers[v->id] <
                       preds[i][u->id] + tie_breakers[u->id];
             });
-
-
-  // std::sort(C_next[i].begin(), C_next[i].begin() + K + 1,
-  //           [&](Vertex* const v, Vertex* const u) {
-  //             return D.get(i,v) <// + tie_breakers[v->id] <
-  //                    D.get(i,u);// + tie_breakers[u->id];
-  //           });
+  } else {
+    //native lacam (sort by distance - backward dijkstras)
+    std::sort(C_next[i].begin(), C_next[i].begin() + Ks + 1,
+              [&](Vertex* const v, Vertex* const u) {
+                return D.get(i,v)  + tie_breakers[v->id] <
+                      D.get(i,u) + tie_breakers[u->id];
+              });
+  }
 
 
   // D.get  should become -> proposal[i][v->id] or equivalent access or proposal weights
@@ -513,9 +517,9 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
 
 
 Solution solve(const Instance& ins, const int verbose, const Deadline* deadline,
-               std::mt19937* MT, torch::jit::script::Module* module, int k)
+               std::mt19937* MT, torch::jit::script::Module* module, int k, bool neural_flag)
 {
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tpre-processing");
-  auto planner = Planner(&ins, deadline, MT, module, k, verbose);
+  auto planner = Planner(&ins, deadline, MT, module, k, verbose, neural_flag);
   return planner.solve();
 }
