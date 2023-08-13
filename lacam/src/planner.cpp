@@ -119,19 +119,19 @@ torch::Tensor Planner::get_map()
   Vertices U = ins->G.U;
 
   std::vector<std::vector<double>> grd;
-  grd.resize(width);
-  for (int i = 0; i < width; ++i)
+  grd.resize(height);
+  for (int i = 0; i < height; ++i)
   {
-    grd[i].resize(height);
+    grd[i].resize(width);
   }
 
   for (int y = 0; y < height; ++y) {
     for (int x = 0; x < width; ++x) {
       if(U[width * y + x] == nullptr) // put in 1 if obstacle, else 0
       {
-        grd[x][y] = 1;
+        grd[y][x] = 1;
       } else {
-        grd[x][y] = 0;
+        grd[y][x] = 0;
       }
     }
   }
@@ -148,20 +148,20 @@ torch::Tensor Planner::get_bd(int a_id)
   Vertices U = ins->G.U;
 
   std::vector<std::vector<double>> bd;
-  bd.resize(width);
-  for (int i = 0; i < width; ++i)
+  bd.resize(height);
+  for (int i = 0; i < height; ++i)
   {
-    bd[i].resize(height);
+    bd[i].resize(width);
   }
 
   for (int y = 0; y < height; ++y) {
     for (int x = 0; x < width; ++x) {
       auto u = U[width * y + x];
-      if(U[width * y + x] == nullptr) // put in 1 if obstacle, else 0
+      if(U[width * y + x] == nullptr) // put in 0 if obstacle, else bd value
       {
-        bd[x][y] = 0;
+        bd[y][x] = 0;
       } else {
-        bd[x][y] = D.get(a_id, u);
+        bd[y][x] = D.get(a_id, u);
       }
     }
   }
