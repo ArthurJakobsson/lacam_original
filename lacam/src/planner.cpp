@@ -171,6 +171,17 @@ torch::Tensor Planner::get_bd(int a_id)
   return t_bd;
 }
 
+torch::Tensor Planner::slice_and_fix_pad(torch::Tensor curr_bd, int row, int col)
+{
+  torch::Tensor loc_grid = grid.index({Slice(row, row+2*K+1),
+											Slice(col, col + 2*K + 1)});
+  double curr_val = curr_bd.index({row+K, col+K}).item<double>();
+  torch::Tensor loc_bd = curr_bd.index({Slice(row, row+2*K+1),
+											Slice(col, col + 2*K + 1)});
+  loc_bd = loc_bd * (1-loc_grid);
+  return loc_bd;
+}
+
 torch::Tensor Planner::bd_helper(std::vector<std::pair<int, std::pair<int,int>>>& dist,
                         int nth_help, int curr_size)
 {
@@ -183,8 +194,7 @@ torch::Tensor Planner::bd_helper(std::vector<std::pair<int, std::pair<int,int>>>
   //# ATTEMPT flip first and second
   int r = (dist[nth_help].second).second;
   int c = (dist[nth_help].second).first;
-  double curr_val = bd[dist[nth_help].first].index({r,c}).item<double>();
-  return bd[dist[nth_help].first].index({Slice(r, r+2*K+1), Slice(c, c+2*K+1)}) - curr_val;
+  return slice_and_fix_pad(bd[dist[nth_help].first], r, c);
 }
 
 std::vector<double> help_loc_helper(std::vector<std::pair<int, std::pair<int,int>>>& dist,
@@ -215,14 +225,7 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     int curr_y = (curr_index - curr_x) / width;
     torch::Tensor loc_grid = grid.index({Slice(curr_y, curr_y+2*K+1),
 											Slice(curr_x, curr_x + 2*K + 1)});
-    double curr_val = bd[a_id].index({curr_y, curr_x}).item<double>();
-    if(fabs(curr_val-D.get(a_id, A[a_id]->v_now))<0.0001)
-    {
-      std::cout << "large difference" << std::endl;
-    }
-    torch::Tensor loc_bd =  bd[a_id].index({Slice(curr_y, curr_y+2*K+1),
-											Slice(curr_x, curr_x + 2*K + 1)}) - curr_val;
-    loc_bd = loc_bd * (1-loc_grid);
+    torch::Tensor loc_bd =  slice_and_fix_pad(bd[a_id], curr_y, curr_x);
     std::cout << loc_bd << std::endl;
     // get 4 nearest agents
     std::vector<std::pair<int, std::pair<int,int>>> locs; //hold agt id, loc
@@ -231,7 +234,7 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
       int help_index = A[j]->v_now->index;
       int help_x = help_index % width;
       int help_y = (help_index - help_x) / width;
-      if(curr_x-K <= help_x && curr_y + K +1 >= help_y)
+      if(abs(curr_x-help_x)>= K && abs(curr_y-help_y)>= K)
       {
         locs.push_back({j, {help_x, help_y}});
       }
@@ -250,15 +253,6 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     {
       helper_loc[i] = help_loc_helper(locs, i, locs.size());
       help_bd[i] = bd_helper(locs, i, locs.size());
-      int helper_r = (locs[i].second).second;
-      int helper_c = (locs[i].second).first;
-      //fix substracting from boundaries
-      // make into helper, causes issue when agent doesn't exist because of padding currently
-      torch::Tensor helper_grid = grid.index({Slice(helper_r, helper_r+2*K+1),
-											Slice(helper_c, helper_c + 2*K + 1)});
-      std::cout << "help_bd[i]" << help_bd[i] <<std::endl;
-      std::cout << "helper_grid" << helper_grid <<std::endl;
-      help_bd[i] = help_bd[i]*(1-helper_grid);
     }
     at::Tensor NN_result = inputs_to_torch(loc_grid, loc_bd, help_bd, helper_loc);
 
