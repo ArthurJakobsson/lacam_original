@@ -76,6 +76,7 @@ struct Planner {
 
   Planner(const Instance* _ins, const Deadline* _deadline, std::mt19937* _MT,
           torch::jit::script::Module* _module, int _k = 4, int _verbose = 0, bool _neural_flag = true);
+  torch::Tensor slice_and_fix_pad(torch::Tensor curr_bd, int row, int col);
   std::vector<std::map<int, double>> createNbyFive (const Vertices &C);
   torch::Tensor get_map();
   torch::Tensor get_bd(int a_id);
