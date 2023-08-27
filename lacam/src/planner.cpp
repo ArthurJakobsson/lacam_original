@@ -178,7 +178,7 @@ torch::Tensor Planner::slice_and_fix_pad(torch::Tensor curr_bd, int row, int col
   double curr_val = curr_bd.index({row+K, col+K}).item<double>();
   torch::Tensor loc_bd = curr_bd.index({Slice(row, row+2*K+1),
 											Slice(col, col + 2*K + 1)}) - curr_val;
-  loc_bd = loc_bd * (1-loc_grid); //fixed currval
+  loc_bd = loc_bd * (1-loc_grid);
   return loc_bd;
 }
 
@@ -187,9 +187,7 @@ torch::Tensor Planner::bd_helper(std::vector<std::pair<int, std::pair<int,int>>>
 {
   if(nth_help+1 >= curr_size)
   {
-    std::vector<std::vector<double> > vec(2*K+1,
-          std::vector<double>(2*K+1));
-    return getTensorFrom2DVecs(vec);
+    return torch::zeros({2*K+1, 2*K+1});
   }
   //# ATTEMPT flip first and second
   int r = (dist[nth_help].second).second;
@@ -234,7 +232,7 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
       int help_index = A[j]->v_now->index;
       int help_x = help_index % width;
       int help_y = (help_index - help_x) / width;
-      if(abs(curr_x-help_x)>= K && abs(curr_y-help_y)>= K)
+      if(abs(curr_x-help_x)<= K && abs(curr_y-help_y)<= K)
       {
         locs.push_back({j, {help_x, help_y}});
       }
