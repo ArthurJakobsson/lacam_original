@@ -178,7 +178,7 @@ torch::Tensor Planner::slice_and_fix_pad(torch::Tensor curr_bd, int row, int col
   double curr_val = curr_bd.index({row+K, col+K}).item<double>();
   torch::Tensor loc_bd = curr_bd.index({Slice(row, row+2*K+1),
 											Slice(col, col + 2*K + 1)}) - curr_val;
-  loc_bd = loc_bd * (1-loc_grid);
+  loc_bd = loc_bd * (1-loc_grid); //fixed currval
   return loc_bd;
 }
 
