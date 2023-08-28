@@ -224,7 +224,6 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     torch::Tensor loc_grid = grid.index({Slice(curr_y, curr_y+2*K+1),
 											Slice(curr_x, curr_x + 2*K + 1)});
     torch::Tensor loc_bd =  slice_and_fix_pad(bd[a_id], curr_y, curr_x);
-    std::cout << loc_bd << std::endl;
     // get 4 nearest agents
     std::vector<std::pair<int, std::pair<int,int>>> locs; //hold agt id, loc
     for (int j = 0; j<N; j++)
@@ -247,10 +246,10 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     //sort distance and take indices [1][2][3][4] (0 is itself)
     std::vector<std::vector<double>> helper_loc;
     helper_loc.resize(4);
-    for(int i = 0; i < 4; i++)
+    for(int i = 1; i < 5; i++)
     {
-      helper_loc[i] = help_loc_helper(locs, i, locs.size());
-      help_bd[i] = bd_helper(locs, i, locs.size());
+      helper_loc[i-1] = help_loc_helper(locs, i, locs.size());
+      help_bd[i-1] = bd_helper(locs, i, locs.size());
     }
     at::Tensor NN_result = inputs_to_torch(loc_grid, loc_bd, help_bd, helper_loc);
 
@@ -475,8 +474,8 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
     //sort by NN
     std::sort(C_next[i].begin(), C_next[i].begin() + Ks + 1,
             [&](Vertex* const v, Vertex* const u) {
-              return preds[i][v->id] + tie_breakers[v->id] <
-                      preds[i][u->id] + tie_breakers[u->id];
+              return preds[i][v->id] > // + tie_breakers[v->id]
+                      preds[i][u->id]; // + tie_breakers[u->id];
             });
   } else {
     //native lacam (sort by distance - backward dijkstras)
