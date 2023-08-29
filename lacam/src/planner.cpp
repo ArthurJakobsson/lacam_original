@@ -255,7 +255,7 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
       help_bd[i] = bd_helper(locs, i, locs.size());
     }
     at::Tensor NN_result = inputs_to_torch(loc_grid, loc_bd, help_bd, helper_loc);
-
+    std::cout << NN_result << std::endl;
     std::vector<double> v_NN_res(NN_result.data_ptr<float>(), NN_result.data_ptr<float>() + NN_result.numel());
     //   if label[0] == 0 and label[1] == 0: index = 0
     //    elif label[0] == 0 and label[1] == 1: index = 1
@@ -268,7 +268,8 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     predictions[a_id][U[width * curr_y + curr_x]->id] = v_NN_res[0];
     int delta_y[4] = {1, -1, 0, 0}; //up down left right
     int delta_x[4] = {0, 0, -1, 1}; //up down left right
-    int nn_index[4] = {1, 4, 3, 2};
+    int nn_index[4] = {3, 1, 2, 4};
+    // int nn_index[4] = {1, 4, 3, 2};
     for(int j = 0; j<4; j++)
     {
       int this_y = curr_y+delta_y[j];
@@ -280,6 +281,7 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
         predictions[a_id][location->id] = v_NN_res[nn_index[j]];
       }
     }
+    std::cout << predictions << std::endl;
     // working example with using D.get inputs (recreate LaCAM)
     // std::vector<Vertex*> c_next = C[i]->neighbor;
     // size_t next_size = c_next.size();
