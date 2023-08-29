@@ -103,10 +103,19 @@ at::Tensor Planner::inputs_to_torch(torch::Tensor& t_grid, torch::Tensor& t_bd,
             std::vector<torch::Tensor>& helper_bds, std::vector<std::vector<double>>& helper_loc)
 {
   std::vector<torch::jit::IValue> inputs;
+  std::cout << "grid\n" << t_grid << std::endl;
+  std::cout << "\nbd\n" << t_grid << std::endl;
+  std::cout << "\nhelp_bd_1\n" << helper_bds[0] << std::endl;
+  std::cout << "\nhelp_bd_2\n" << helper_bds[1] << std::endl;
+  std::cout << "\nhelp_bd_3\n" << helper_bds[2] << std::endl;
+  std::cout << "\nhelp_bd_4\n" << helper_bds[3] << std::endl;
   torch::Tensor stacked = torch::stack({t_grid, t_bd, helper_bds[0],
                             helper_bds[1], helper_bds[2], helper_bds[3]});
   inputs.push_back(stacked.unsqueeze(0)); // (6,9,9) --> (1,6,9,9)
+  std::cout << "\nsize\n" << stacked.unsqueeze(0).sizes() << std::endl;
   inputs.push_back(torch::flatten(getTensorFrom2DVecs(helper_loc)).unsqueeze(0)); // (8) --> (1,8)
+  std::cout << "\nhelp_locations\n" << torch::flatten(getTensorFrom2DVecs(helper_loc)).unsqueeze(0) << std::endl;
+  std::cout << "help_locations_size" << torch::flatten(getTensorFrom2DVecs(helper_loc)).unsqueeze(0).sizes() << std::endl;
   at::Tensor NN_out = (*module).forward(inputs).toTensor();
   // std::cout << NN_out.slice(/*dim=*/1, /*start=*/0, /*end=*/5) << '\n';
   return NN_out;
@@ -176,9 +185,12 @@ torch::Tensor Planner::slice_and_fix_pad(torch::Tensor curr_bd, int row, int col
   torch::Tensor loc_grid = grid.index({Slice(row, row+2*K+1),
 											Slice(col, col + 2*K + 1)});
   double curr_val = curr_bd.index({row+K, col+K}).item<double>();
+  // std::cout << "pre" << curr_bd.index({Slice(row, row+2*K+1),
+	// 										Slice(col, col + 2*K + 1)}) << std::endl;
   torch::Tensor loc_bd = curr_bd.index({Slice(row, row+2*K+1),
 											Slice(col, col + 2*K + 1)}) - curr_val;
-  loc_bd = loc_bd * (1-loc_grid);
+  // loc_bd = loc_bd * (1-loc_grid);
+  // std::cout << "post" << loc_bd << std::endl;
   return loc_bd;
 }
 
@@ -265,7 +277,7 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     predictions[a_id][U[width * curr_y + curr_x]->id] = v_NN_res[0];
     int delta_y[4] = {1, -1, 0, 0}; //up down left right
     int delta_x[4] = {0, 0, -1, 1}; //up down left right
-    int nn_index[4] = {1, 4, 3, 2};
+    int nn_index[4] = {3, 1, 2, 4};
     for(int j = 0; j<4; j++)
     {
       int this_y = curr_y+delta_y[j];
