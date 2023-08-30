@@ -190,7 +190,7 @@ torch::Tensor Planner::slice_and_fix_pad(torch::Tensor curr_bd, int row, int col
   torch::Tensor loc_bd = curr_bd.index({Slice(row, row+2*K+1),
 											Slice(col, col + 2*K + 1)}) - curr_val;
   loc_bd = loc_bd * (1-loc_grid);
-  std::cout << "post" << loc_bd << std::endl;
+  // std::cout << "post" << loc_bd << std::endl;
   return loc_bd;
 }
 
@@ -234,7 +234,7 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     torch::Tensor loc_grid = grid.index({Slice(curr_row, curr_row+2*K+1),
 											Slice(curr_col, curr_col + 2*K + 1)});
     torch::Tensor loc_bd =  slice_and_fix_pad(bd[a_id], curr_row, curr_col);
-    std::cout << loc_bd << std::endl;
+    // std::cout << loc_bd << std::endl;
     // get 4 nearest agents
     std::vector<std::pair<int, std::pair<int,int>>> locs; //hold agt id, loc
     for (int j = 0; j<N; j++)
