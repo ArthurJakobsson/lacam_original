@@ -180,43 +180,41 @@ torch::Tensor Planner::get_bd(int a_id)
   return t_bd;
 }
 
-torch::Tensor Planner::slice_and_fix_pad(torch::Tensor curr_bd, int row, int col)
+torch::Tensor Planner::slice_and_fix_pad(torch::Tensor curr_bd, int row, int col, bool center=true, int row2=-1, int col2=-1)
 {
   torch::Tensor loc_grid = grid.index({Slice(row, row+2*K+1),
 											Slice(col, col + 2*K + 1)});
-  double curr_val = curr_bd.index({row+K, col+K}).item<double>();
+  double curr_val = center ? curr_bd.index({row+K, col+K}).item<double>() : curr_bd.index({row2+K, col2+K}).item<double>();
   // std::cout << "pre" << curr_bd.index({Slice(row, row+2*K+1),
 	// 										Slice(col, col + 2*K + 1)}) << std::endl;
   torch::Tensor loc_bd = curr_bd.index({Slice(row, row+2*K+1),
 											Slice(col, col + 2*K + 1)}) - curr_val;
   loc_bd = loc_bd * (1-loc_grid);
-  // std::cout << "post" << loc_bd << std::endl;
+  std::cout << "post" << loc_bd << std::endl;
   return loc_bd;
 }
 
 torch::Tensor Planner::bd_helper(std::vector<std::pair<int, std::pair<int,int>>>& dist,
-                        int nth_help, int curr_size, int curr_x, int curr_y)
+                        int nth_help, int curr_size, int curr_row, int curr_col)
 {
   if(nth_help >= curr_size)
   {
     return torch::zeros({2*K+1, 2*K+1});
   }
   //# ATTEMPT flip first and second
-  int r = (dist[nth_help].second).second;
-  int c = (dist[nth_help].second).first;
-  return slice_and_fix_pad(bd[dist[nth_help].first], curr_y, curr_x);
+  // int r = (dist[nth_help].second).second;
+  // int c = (dist[nth_help].second).first;
+  return slice_and_fix_pad(bd[dist[nth_help].first], curr_row, curr_col);
 }
 
 std::vector<double> help_loc_helper(std::vector<std::pair<int, std::pair<int,int>>>& dist,
-                        int nth_help, int curr_size, int curr_x, int curr_y)
+                        int nth_help, int curr_size, int curr_row, int curr_col)
 {
-  std::vector<double> point;
-  point.resize(2);
-  std::fill(point.begin(), point.end(), 0);
+  std::vector<double> point = {0, 0};
   if(nth_help < curr_size)
   {
-    point[0] = (dist[nth_help].second).first - curr_x;
-    point[1] = (dist[nth_help].second).second - curr_y;
+    point[0] = (dist[nth_help].second).first - curr_row;
+    point[1] = (dist[nth_help].second).second - curr_col;
   }
   return point;
 }
@@ -231,29 +229,29 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     int width = ins->G.width;
     int height = ins->G.height;
     int curr_index = A[a_id]->v_now->index;
-    int curr_x = curr_index % width;
-    int curr_y = (curr_index - curr_x) / width;
-    torch::Tensor loc_grid = grid.index({Slice(curr_y, curr_y+2*K+1),
-											Slice(curr_x, curr_x + 2*K + 1)});
-    torch::Tensor loc_bd =  slice_and_fix_pad(bd[a_id], curr_y, curr_x);
-    // std::cout << loc_bd << std::endl;
+    int curr_col = curr_index % width;
+    int curr_row = (curr_index - curr_col) / width;
+    torch::Tensor loc_grid = grid.index({Slice(curr_row, curr_row+2*K+1),
+											Slice(curr_col, curr_col + 2*K + 1)});
+    torch::Tensor loc_bd =  slice_and_fix_pad(bd[a_id], curr_row, curr_col);
+    std::cout << loc_bd << std::endl;
     // get 4 nearest agents
     std::vector<std::pair<int, std::pair<int,int>>> locs; //hold agt id, loc
     for (int j = 0; j<N; j++)
     {
       int help_index = A[j]->v_now->index;
-      int help_x = help_index % width;
-      int help_y = (help_index - help_x) / width;
+      int help_col = help_index % width;
+      int help_row = (help_index - help_col) / width;
       // std::cout << curr_x << curr_y << help_x << help_y << std::endl;
-      if(abs(curr_x-help_x)<= K && abs(curr_y-help_y)<= K)
+      if(abs(curr_col-help_col)<= K && abs(curr_row-help_row)<= K)
       {
-        locs.push_back({j, {help_x, help_y}});
+        locs.push_back({j, {help_row, help_col}});
       }
     }
     std::sort(locs.begin(), locs.end(),
             [&](std::pair<int, std::pair<int,int>> W, std::pair<int,std::pair<int,int>> U) {
-              return (abs((W.second).first - curr_x) + abs((W.second).second - curr_y)) <
-                      (abs((U.second).first - curr_x) + abs((U.second).second - curr_y));
+              return (abs((W.second).first - curr_row) + abs((W.second).second - curr_col)) <
+                      (abs((U.second).first - curr_row) + abs((U.second).second - curr_col));
             });
     std::vector<torch::Tensor> help_bd;
     help_bd.resize(4);
@@ -262,8 +260,8 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     helper_loc.resize(4);
     for(int i = 1; i < 5; i++)
     {
-      helper_loc[i-1] = help_loc_helper(locs, i, locs.size(), curr_x, curr_y);
-      help_bd[i-1] = bd_helper(locs, i, locs.size(), curr_x, curr_y);
+      helper_loc[i-1] = help_loc_helper(locs, i, locs.size(), curr_row, curr_col);
+      help_bd[i-1] = bd_helper(locs, i, locs.size(), curr_row, curr_col);
     }
     at::Tensor NN_result = inputs_to_torch(loc_grid, loc_bd, help_bd, helper_loc);
     // std::cout << NN_result << std::endl;
@@ -277,19 +275,17 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
 
     // agent location add for "no action"
     // predictions[a_id][U[width * curr_y + curr_x]->id] = v_NN_res[0];
-    int delta_y[5] = {0, 1, -1, 0, 0}; //up down left right
-    int delta_x[5] = {0, 0,  0, -1, 1}; //up down left right
-    int nn_index[5] = {0, 2, 3, 4, 1};
-    // int nn_index[4] = {1, 4, 3, 2};
+    int delta_row[5] = {0, 0, 1, -1, 0}; //stop right down up left
+    int delta_col[5] = {0, 1, 0, 0, -1}; //stop right down up left
     for(int j = 0; j<5; j++)
     {
-      int this_y = curr_y+delta_y[j];
-      int this_x = curr_x+delta_x[j];
-      if(this_y<0 || this_x<0 || this_x>=width || this_y >= height) continue;
-      auto location = U[width * (this_y) + (this_x)];
+      int this_row = curr_row+delta_row[j];
+      int this_col = curr_col+delta_col[j];
+      if(this_row<0 || this_col<0 || this_col>=width || this_row >= height) continue;
+      auto location = U[width * (this_row) + (this_col)];
       if(location!=nullptr)
       {
-        predictions[a_id][location->id] = v_NN_res[nn_index[j]];
+        predictions[a_id][location->id] = v_NN_res[j];
       }
     }
     // std::cout << predictions << std::endl;
