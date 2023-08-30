@@ -103,19 +103,19 @@ at::Tensor Planner::inputs_to_torch(torch::Tensor& t_grid, torch::Tensor& t_bd,
             std::vector<torch::Tensor>& helper_bds, std::vector<std::vector<double>>& helper_loc)
 {
   std::vector<torch::jit::IValue> inputs;
-  std::cout << "grid\n" << t_grid << std::endl;
-  std::cout << "\nbd\n" << t_grid << std::endl;
-  std::cout << "\nhelp_bd_1\n" << helper_bds[0] << std::endl;
-  std::cout << "\nhelp_bd_2\n" << helper_bds[1] << std::endl;
-  std::cout << "\nhelp_bd_3\n" << helper_bds[2] << std::endl;
-  std::cout << "\nhelp_bd_4\n" << helper_bds[3] << std::endl;
+  // std::cout << "grid\n" << t_grid << std::endl;
+  // std::cout << "\nbd\n" << t_bd << std::endl;
+  // std::cout << "\nhelp_bd_1\n" << helper_bds[0] << std::endl;
+  // std::cout << "\nhelp_bd_2\n" << helper_bds[1] << std::endl;
+  // std::cout << "\nhelp_bd_3\n" << helper_bds[2] << std::endl;
+  // std::cout << "\nhelp_bd_4\n" << helper_bds[3] << std::endl;
   torch::Tensor stacked = torch::stack({t_grid, t_bd, helper_bds[0],
                             helper_bds[1], helper_bds[2], helper_bds[3]});
   inputs.push_back(stacked.unsqueeze(0)); // (6,9,9) --> (1,6,9,9)
-  std::cout << "\nsize\n" << stacked.unsqueeze(0).sizes() << std::endl;
+  // std::cout << "\nsize\n" << stacked.unsqueeze(0).sizes() << std::endl;
   inputs.push_back(torch::flatten(getTensorFrom2DVecs(helper_loc)).unsqueeze(0)); // (8) --> (1,8)
-  std::cout << "\nhelp_locations\n" << torch::flatten(getTensorFrom2DVecs(helper_loc)).unsqueeze(0) << std::endl;
-  std::cout << "help_locations_size" << torch::flatten(getTensorFrom2DVecs(helper_loc)).unsqueeze(0).sizes() << std::endl;
+  // std::cout << "\nhelp_locations\n" << torch::flatten(getTensorFrom2DVecs(helper_loc)).unsqueeze(0) << std::endl;
+  // std::cout << "help_locations_size" << torch::flatten(getTensorFrom2DVecs(helper_loc)).unsqueeze(0).sizes() << std::endl;
   at::Tensor NN_out = (*module).forward(inputs).toTensor();
   // std::cout << NN_out.slice(/*dim=*/1, /*start=*/0, /*end=*/5) << '\n';
   return NN_out;
@@ -185,38 +185,33 @@ torch::Tensor Planner::slice_and_fix_pad(torch::Tensor curr_bd, int row, int col
   torch::Tensor loc_grid = grid.index({Slice(row, row+2*K+1),
 											Slice(col, col + 2*K + 1)});
   double curr_val = curr_bd.index({row+K, col+K}).item<double>();
-  // std::cout << "pre" << curr_bd.index({Slice(row, row+2*K+1),
-	// 										Slice(col, col + 2*K + 1)}) << std::endl;
-  torch::Tensor loc_bd = curr_bd.index({Slice(row, row+2*K+1),
+  torch::Tensor bd_sliced= curr_bd.index({Slice(row, row+2*K+1),
 											Slice(col, col + 2*K + 1)}) - curr_val;
-  // loc_bd = loc_bd * (1-loc_grid);
-  // std::cout << "post" << loc_bd << std::endl;
-  return loc_bd;
+  bd_sliced = bd_sliced * (1-loc_grid);
+  // std::cout << "post" << bd_sliced << std::endl;
+  return bd_sliced;
 }
 
 torch::Tensor Planner::bd_helper(std::vector<std::pair<int, std::pair<int,int>>>& dist,
-                        int nth_help, int curr_size)
+                        int nth_help, int curr_size, int r, int c)
 {
-  if(nth_help+1 >= curr_size)
+  if(nth_help >= curr_size)
   {
     return torch::zeros({2*K+1, 2*K+1});
   }
-  //# ATTEMPT flip first and second
-  int r = (dist[nth_help].second).second;
-  int c = (dist[nth_help].second).first;
   return slice_and_fix_pad(bd[dist[nth_help].first], r, c);
 }
 
 std::vector<double> help_loc_helper(std::vector<std::pair<int, std::pair<int,int>>>& dist,
-                        int nth_help, int curr_size)
+                        int nth_help, int curr_size, int curr_x, int curr_y)
 {
   std::vector<double> point;
   point.resize(2);
   std::fill(point.begin(), point.end(), 0);
   if(nth_help < curr_size)
   {
-    point[0] = (dist[nth_help].second).first;
-    point[1] = (dist[nth_help].second).second;
+    point[0] = (dist[nth_help].second).first-curr_x;
+    point[1] = (dist[nth_help].second).second-curr_y;
   }
   return point;
 }
@@ -231,8 +226,8 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     int width = ins->G.width;
     int height = ins->G.height;
     int curr_index = A[a_id]->v_now->index;
-    int curr_x = curr_index % width;
-    int curr_y = (curr_index - curr_x) / width;
+    int curr_x = curr_index % width; // column
+    int curr_y = (curr_index - curr_x) / width; // row
     torch::Tensor loc_grid = grid.index({Slice(curr_y, curr_y+2*K+1),
 											Slice(curr_x, curr_x + 2*K + 1)});
     torch::Tensor loc_bd =  slice_and_fix_pad(bd[a_id], curr_y, curr_x);
@@ -241,8 +236,8 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     for (int j = 0; j<N; j++)
     {
       int help_index = A[j]->v_now->index;
-      int help_x = help_index % width;
-      int help_y = (help_index - help_x) / width;
+      int help_x = help_index % width; // column
+      int help_y = (help_index - help_x) / width; // row
       if(abs(curr_x-help_x)<= K && abs(curr_y-help_y)<= K)
       {
         locs.push_back({j, {help_x, help_y}});
@@ -260,9 +255,10 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     helper_loc.resize(4);
     for(int i = 1; i < 5; i++)
     {
-      helper_loc[i-1] = help_loc_helper(locs, i, locs.size());
-      help_bd[i-1] = bd_helper(locs, i, locs.size());
+      helper_loc[i-1] = help_loc_helper(locs, i, locs.size(), curr_x, curr_y);
+      help_bd[i-1] = bd_helper(locs, i, locs.size(), curr_y, curr_x);
     }
+    // std::cout << "loc_bd\n" << loc_bd << std::endl;
     at::Tensor NN_result = inputs_to_torch(loc_grid, loc_bd, help_bd, helper_loc);
 
     std::vector<double> v_NN_res(NN_result.data_ptr<float>(), NN_result.data_ptr<float>() + NN_result.numel());
@@ -277,7 +273,7 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     predictions[a_id][U[width * curr_y + curr_x]->id] = v_NN_res[0];
     int delta_y[4] = {1, -1, 0, 0}; //up down left right
     int delta_x[4] = {0, 0, -1, 1}; //up down left right
-    int nn_index[4] = {3, 1, 2, 4};
+    int nn_index[4] = {3,2,4,1};//{1, 4, 3, 2};
     for(int j = 0; j<4; j++)
     {
       int this_y = curr_y+delta_y[j];
@@ -520,11 +516,25 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
     occupied_next[u->id] = ai;
     ai->v_next = u;
 
+    int width = ins->G.width;
+    // int height = ins->G.height;
+    int c = u->index % width; // column
+    int r = (u->index - c) / width; // row
+
+
+    // grid.index({c,r}) = 2;
+    std::cout << "\ngrid\n" << grid << std::endl;
+    // grid.index({c,r}) = 0;
+
+    // need to figure out if agent location hits the wall
+    // if agent hits wall then we should just jump to the next idea
+
     // empty or stay
     if (ak == nullptr || u == ai->v_now) return true;
 
     // priority inheritance
     if (ak->v_next == nullptr && !funcPIBT(ak, preds)) continue;
+
 
     // success to plan next one step
     return true;

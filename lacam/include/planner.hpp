@@ -81,7 +81,7 @@ struct Planner {
   torch::Tensor get_map();
   torch::Tensor get_bd(int a_id);
   torch::Tensor bd_helper(std::vector<std::pair<int, std::pair<int,int>>>& dist,
-                        int nth_help, int curr_size);
+                        int nth_help, int curr_size, int r, int c);
   at::Tensor inputs_to_torch(torch::Tensor& t_grid, torch::Tensor& t_bd,
   std::vector<torch::Tensor>& helper_bds, std::vector<std::vector<double>>& helper_loc);
   Solution solve();
