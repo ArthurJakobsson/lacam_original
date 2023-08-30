@@ -43,3 +43,9 @@ map
 **/build_debug/*
 assets/*
 models/*
+CMakeFiles
+cmake*
+test*
+make
+Makefile
+CPack*

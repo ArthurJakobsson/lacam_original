@@ -103,10 +103,19 @@ at::Tensor Planner::inputs_to_torch(torch::Tensor& t_grid, torch::Tensor& t_bd,
             std::vector<torch::Tensor>& helper_bds, std::vector<std::vector<double>>& helper_loc)
 {
   std::vector<torch::jit::IValue> inputs;
+  // std::cout << "grid\n" << t_grid << std::endl;
+  // std::cout << "\nbd\n" << t_bd << std::endl;
+  // std::cout << "\nhelp_bd_1\n" << helper_bds[0] << std::endl;
+  // std::cout << "\nhelp_bd_2\n" << helper_bds[1] << std::endl;
+  // std::cout << "\nhelp_bd_3\n" << helper_bds[2] << std::endl;
+  // std::cout << "\nhelp_bd_4\n" << helper_bds[3] << std::endl;
   torch::Tensor stacked = torch::stack({t_grid, t_bd, helper_bds[0],
                             helper_bds[1], helper_bds[2], helper_bds[3]});
   inputs.push_back(stacked.unsqueeze(0)); // (6,9,9) --> (1,6,9,9)
+  // std::cout << "\nsize\n" << stacked.unsqueeze(0).sizes() << std::endl;
   inputs.push_back(torch::flatten(getTensorFrom2DVecs(helper_loc)).unsqueeze(0)); // (8) --> (1,8)
+  // std::cout << "\nhelp_locations\n" << torch::flatten(getTensorFrom2DVecs(helper_loc)).unsqueeze(0) << std::endl;
+  // std::cout << "help_locations_size" << torch::flatten(getTensorFrom2DVecs(helper_loc)).unsqueeze(0).sizes() << std::endl;
   at::Tensor NN_out = (*module).forward(inputs).toTensor();
   // std::cout << NN_out.slice(/*dim=*/1, /*start=*/0, /*end=*/5) << '\n';
   return NN_out;
@@ -176,37 +185,38 @@ torch::Tensor Planner::slice_and_fix_pad(torch::Tensor curr_bd, int row, int col
   torch::Tensor loc_grid = grid.index({Slice(row, row+2*K+1),
 											Slice(col, col + 2*K + 1)});
   double curr_val = curr_bd.index({row+K, col+K}).item<double>();
+  // std::cout << "pre" << curr_bd.index({Slice(row, row+2*K+1),
+	// 										Slice(col, col + 2*K + 1)}) << std::endl;
   torch::Tensor loc_bd = curr_bd.index({Slice(row, row+2*K+1),
 											Slice(col, col + 2*K + 1)}) - curr_val;
   loc_bd = loc_bd * (1-loc_grid);
+  // std::cout << "post" << loc_bd << std::endl;
   return loc_bd;
 }
 
 torch::Tensor Planner::bd_helper(std::vector<std::pair<int, std::pair<int,int>>>& dist,
-                        int nth_help, int curr_size)
+                        int nth_help, int curr_size, int curr_x, int curr_y)
 {
-  if(nth_help+1 >= curr_size)
+  if(nth_help >= curr_size)
   {
-    std::vector<std::vector<double> > vec(2*K+1,
-          std::vector<double>(2*K+1));
-    return getTensorFrom2DVecs(vec);
+    return torch::zeros({2*K+1, 2*K+1});
   }
   //# ATTEMPT flip first and second
   int r = (dist[nth_help].second).second;
   int c = (dist[nth_help].second).first;
-  return slice_and_fix_pad(bd[dist[nth_help].first], r, c);
+  return slice_and_fix_pad(bd[dist[nth_help].first], curr_y, curr_x);
 }
 
 std::vector<double> help_loc_helper(std::vector<std::pair<int, std::pair<int,int>>>& dist,
-                        int nth_help, int curr_size)
+                        int nth_help, int curr_size, int curr_x, int curr_y)
 {
   std::vector<double> point;
   point.resize(2);
   std::fill(point.begin(), point.end(), 0);
   if(nth_help < curr_size)
   {
-    point[0] = (dist[nth_help].second).first;
-    point[1] = (dist[nth_help].second).second;
+    point[0] = (dist[nth_help].second).first - curr_x;
+    point[1] = (dist[nth_help].second).second - curr_y;
   }
   return point;
 }
@@ -226,7 +236,7 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     torch::Tensor loc_grid = grid.index({Slice(curr_y, curr_y+2*K+1),
 											Slice(curr_x, curr_x + 2*K + 1)});
     torch::Tensor loc_bd =  slice_and_fix_pad(bd[a_id], curr_y, curr_x);
-    std::cout << loc_bd << std::endl;
+    // std::cout << loc_bd << std::endl;
     // get 4 nearest agents
     std::vector<std::pair<int, std::pair<int,int>>> locs; //hold agt id, loc
     for (int j = 0; j<N; j++)
@@ -234,7 +244,8 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
       int help_index = A[j]->v_now->index;
       int help_x = help_index % width;
       int help_y = (help_index - help_x) / width;
-      if(abs(curr_x-help_x)>= K && abs(curr_y-help_y)>= K)
+      // std::cout << curr_x << curr_y << help_x << help_y << std::endl;
+      if(abs(curr_x-help_x)<= K && abs(curr_y-help_y)<= K)
       {
         locs.push_back({j, {help_x, help_y}});
       }
@@ -249,13 +260,13 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     //sort distance and take indices [1][2][3][4] (0 is itself)
     std::vector<std::vector<double>> helper_loc;
     helper_loc.resize(4);
-    for(int i = 0; i < 4; i++)
+    for(int i = 1; i < 5; i++)
     {
-      helper_loc[i] = help_loc_helper(locs, i, locs.size());
-      help_bd[i] = bd_helper(locs, i, locs.size());
+      helper_loc[i-1] = help_loc_helper(locs, i, locs.size(), curr_x, curr_y);
+      help_bd[i-1] = bd_helper(locs, i, locs.size(), curr_x, curr_y);
     }
     at::Tensor NN_result = inputs_to_torch(loc_grid, loc_bd, help_bd, helper_loc);
-    std::cout << NN_result << std::endl;
+    // std::cout << NN_result << std::endl;
     std::vector<double> v_NN_res(NN_result.data_ptr<float>(), NN_result.data_ptr<float>() + NN_result.numel());
     //   if label[0] == 0 and label[1] == 0: index = 0
     //    elif label[0] == 0 and label[1] == 1: index = 1
@@ -265,12 +276,12 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     Vertices U = ins->G.U;
 
     // agent location add for "no action"
-    predictions[a_id][U[width * curr_y + curr_x]->id] = v_NN_res[0];
-    int delta_y[4] = {1, -1, 0, 0}; //up down left right
-    int delta_x[4] = {0, 0, -1, 1}; //up down left right
-    int nn_index[4] = {3, 1, 2, 4};
+    // predictions[a_id][U[width * curr_y + curr_x]->id] = v_NN_res[0];
+    int delta_y[5] = {0, 1, -1, 0, 0}; //up down left right
+    int delta_x[5] = {0, 0,  0, -1, 1}; //up down left right
+    int nn_index[5] = {0, 2, 3, 4, 1};
     // int nn_index[4] = {1, 4, 3, 2};
-    for(int j = 0; j<4; j++)
+    for(int j = 0; j<5; j++)
     {
       int this_y = curr_y+delta_y[j];
       int this_x = curr_x+delta_x[j];
@@ -281,7 +292,7 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
         predictions[a_id][location->id] = v_NN_res[nn_index[j]];
       }
     }
-    std::cout << predictions << std::endl;
+    // std::cout << predictions << std::endl;
     // working example with using D.get inputs (recreate LaCAM)
     // std::vector<Vertex*> c_next = C[i]->neighbor;
     // size_t next_size = c_next.size();
@@ -479,8 +490,8 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
     //sort by NN
     std::sort(C_next[i].begin(), C_next[i].begin() + Ks + 1,
             [&](Vertex* const v, Vertex* const u) {
-              return preds[i][v->id] + tie_breakers[v->id] <
-                      preds[i][u->id] + tie_breakers[u->id];
+              return preds[i][v->id] > // + tie_breakers[v->id]
+                      preds[i][u->id]; // + tie_breakers[u->id];
             });
   } else {
     //native lacam (sort by distance - backward dijkstras)
