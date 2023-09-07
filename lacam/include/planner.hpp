@@ -84,12 +84,12 @@ struct Planner {
                         int nth_help, int curr_size, int curr_x, int curr_y);
   at::Tensor inputs_to_torch(torch::Tensor& t_grid, torch::Tensor& t_bd,
   std::vector<torch::Tensor>& helper_bds, std::vector<std::vector<double>>& helper_loc);
-  Solution solve();
+  AllSolution solve();
   bool get_new_config(Node* S, Constraint* M);
   bool funcPIBT(Agent* ai,std::vector<std::map<int,double>> &preds);
 };
 
 // main function
-Solution solve(const Instance& ins, const int verbose = 0,
+AllSolution solve(const Instance& ins, const int verbose = 0,
                const Deadline* deadline = nullptr, std::mt19937* MT = nullptr,
                torch::jit::script::Module* _module = nullptr, int k = 4, bool _neural_flag = true);

@@ -301,7 +301,7 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
   return predictions;
 }
 
-Solution Planner::solve()
+AllSolution Planner::solve()
 {
 
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tstart search");
@@ -396,12 +396,14 @@ Solution Planner::solve()
        solution.empty() ? (OPEN.empty() ? "no solution" : "failed")
                         : "solution found",
        "\tloop_itr:", loop_cnt, "\texplored:", CLOSED.size());
+  
+
   // memory management
   for (auto a : A) delete a;
   for (auto M : GC) delete M;
   for (auto p : CLOSED) delete p.second;
 
-  return solution;
+  return make_tuple(solution, cache_hit, loop_cnt); 
 }
 
 bool Planner::get_new_config(Node* S, Constraint* M) //Node contains the N by 5
@@ -537,7 +539,7 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
 }
 
 
-Solution solve(const Instance& ins, const int verbose, const Deadline* deadline,
+AllSolution solve(const Instance& ins, const int verbose, const Deadline* deadline,
                std::mt19937* MT, torch::jit::script::Module* module, int k, bool neural_flag)
 {
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tpre-processing");

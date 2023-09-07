@@ -130,10 +130,13 @@ void print_stats(const int verbose, const Instance& ins,
 // for log of map_name
 static const std::regex r_map_name = std::regex(R"(.+/(.+))");
 
-void make_log(const Instance& ins, const Solution& solution,
+void make_log(const Instance& ins, const AllSolution& all_solution,
               const std::string& output_name, const double comp_time_ms,
               const std::string& map_name, const int seed, const bool log_short)
 {
+  Solution solution;
+  int cache_hit, loop_cnt;
+  std::tie(solution, cache_hit, loop_cnt) = all_solution;
   // map name
   std::smatch results;
   const auto map_recorded_name =
@@ -160,6 +163,8 @@ void make_log(const Instance& ins, const Solution& solution,
   log << "sum_of_loss_lb=" << get_sum_of_costs_lower_bound(ins, dist_table)
       << "\n";
   log << "comp_time=" << comp_time_ms << "\n";
+  log << "cache_hit=" << cache_hit << "\n";
+  log << "total_nodes_opened=" << loop_cnt << "\n";
   log << "seed=" << seed << "\n";
   if (log_short) return;
   log << "starts=";

@@ -9,29 +9,24 @@ from os.path import exists
 class BatchRunner:
     """Class for running a single scen file"""
 
-    def __init__(self, solver, sipp, cutoffTime, goBack, groupSize, mapName, output, eecbsParams=None) -> None:
-        self.solver = solver
-        self.sipp = sipp
+    def __init__(self, mapName, scen, model, k, verbose, cutoffTime, neural, output, df) -> None:
         self.cutoffTime = cutoffTime
         self.map = mapName
+        self.scen=scen,
+        self.model=model,
+        self.k=k,
+        self.verbose=verbose,
+        self.cutoffTime=cutoffTime,
+        self.neural=neural,
         self.output = output
-        self.goBack = goBack
-        self.groupSize = groupSize
-        if groupSize > 1:
-            assert (goBack)
-        if solver == "LNS":
-            self.outputCSVFile = output+"-LNS.csv"
-        else:
-            self.outputCSVFile = output + ".csv"
+        self.outputCSVFile = "./csv/"+mapName
 
-        self.eecbsParams = eecbsParams
-
-    def runSingleSettingsOnMap(self, numAgents, aSeed):
+    def runSingleSettingsOnMap(self, numAgents):
         # Main command
         command = "./build/main"
 
         # Batch experiment settings
-        command += " --seed={}".format(aSeed)
+        # command += " --seed={}".format(aSeed)
         command += " --num={}".format(numAgents)
         command += " --map={}",format(self.map)
         command += " --scen=".format(self.scen)
@@ -42,11 +37,31 @@ class BatchRunner:
         command += " --neural_flag={}".format(self.neural)
         command += " --time_limit_sec={}".format(self.cutoffTime)
         command += " --kval=".format(self.k)
+        command += " --output=".format(self.output)
 
         # True if want failure error
         subprocess.run(command.split(" "), check=True)
+        f = open("./logs.txt", "r")
+        agents = f.readline().split("=")[1]
+        map_file = f.readline().split("=")[1]
+        next(f) #skip solver
+        solved = f.readline().split("=")[1]
+        soc = f.readline().split("=")[1]
+        soc_lb = f.readline().split("=")[1]
+        makespan = f.readline().split("=")[1]
+        makespan_lb = f.readline().split("=")[1]
+        sum_of_loss = f.readline().split("=")[1]
+        sum_of_loss_lb = f.readline().split("=")[1]
+        comp_time = f.readline().split("=")[1]
+        dfList= [map_file, self.scen, self.k, self.neural, agents,  solved, soc, soc_lb, makespan, makespan_lb, sum_of_loss, sum_of_loss_lb, comp_time]
+        new_df = pd.DataFrame(dfList).T
+        new_df.to_csv('./csv/'+self.map+'.csv', mode='a')
+
+        # convert to csv here
 
     def detectExistingStatus(self, numAgents):
+        
+
         if exists(self.outputCSVFile):
             df = pd.read_csv(self.outputCSVFile)
             if self.solver == "LNS":
@@ -90,6 +105,10 @@ class BatchRunner:
 def lacamExps(map, scen, model, k):
     batchFolderName = "logs/"
 
+    df = pd.DataFrame(columns=['map', 'scene','k','neural','agents','solved', 'soc', 'soc_lb', 'makespan','makespan_lb', 'sum_of_loss', 'sum_of_loss_lb', 'comp_time'])
+
+    df.to_csv('./csv/'+map+'.csv')
+
     expSettings = dict(
         map=map,
         scen=scen,
@@ -106,11 +125,11 @@ def lacamExps(map, scen, model, k):
 
     agentRange = [1] + list(range(10, 100+1, 10))
 
-    seeds = list(range(1, 3))
+    # seeds = list(range(1, 3))
 
     # For running across all
     myBR = BatchRunner(**expSettings)
-    myBR.runBatchExps(agentRange, seeds)
+    myBR.runBatchExps(agentRange)
 
 
 if __name__ == "__main__":
