@@ -90,6 +90,10 @@ struct Planner {
 };
 
 // main function
-AllSolution solve(const Instance& ins, const int verbose = 0,
+Solution solve(const Instance& ins, const int verbose = 0,
+               const Deadline* deadline = nullptr, std::mt19937* MT = nullptr,
+               torch::jit::script::Module* _module = nullptr, int k = 4, bool _neural_flag = true);
+
+AllSolution solveAll(const Instance& ins, const int verbose = 0,
                const Deadline* deadline = nullptr, std::mt19937* MT = nullptr,
                torch::jit::script::Module* _module = nullptr, int k = 4, bool _neural_flag = true);

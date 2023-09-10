@@ -146,45 +146,87 @@ void make_log(const Instance& ins, const AllSolution& all_solution,
   // for instance-specific values
   auto dist_table = DistTable(ins);
 
-  // log for visualizer
-  auto get_x = [&](int k) { return k % ins.G.width; };
-  auto get_y = [&](int k) { return k / ins.G.width; };
-  std::ofstream log;
-  log.open(output_name, std::ios::out);
-  log << "agents=" << ins.N << "\n";
-  log << "map_file=" << map_recorded_name << "\n";
-  log << "solver=planner\n";
-  log << "solved=" << !solution.empty() << "\n";
-  log << "soc=" << get_sum_of_costs(solution) << "\n";
-  log << "soc_lb=" << get_sum_of_costs_lower_bound(ins, dist_table) << "\n";
-  log << "makespan=" << get_makespan(solution) << "\n";
-  log << "makespan_lb=" << get_makespan_lower_bound(ins, dist_table) << "\n";
-  log << "sum_of_loss=" << get_sum_of_loss(solution) << "\n";
-  log << "sum_of_loss_lb=" << get_sum_of_costs_lower_bound(ins, dist_table)
-      << "\n";
-  log << "comp_time=" << comp_time_ms << "\n";
-  log << "cache_hit=" << cache_hit << "\n";
-  log << "total_nodes_opened=" << loop_cnt << "\n";
-  log << "seed=" << seed << "\n";
-  if (log_short) return;
-  log << "starts=";
-  for (size_t i = 0; i < ins.N; ++i) {
-    auto k = ins.starts[i]->index;
-    log << "(" << get_x(k) << "," << get_y(k) << "),";
+  std::ifstream infile(output_name);
+  bool exist = infile.good();
+  infile.close();
+  if (!exist) {
+    std::ofstream addHeads(output_name);
+    addHeads 
+    << "agents," 
+    << "map_file," 
+    << "seed," 
+    << "solved," 
+    << "soc," 
+    << "soc_lb," 
+    << "makespan," 
+    << "makespan_lb," 
+    << "sum_of_loss," 
+    << "sum_of_loss_lb," 
+    << "comp_time," 
+    << "cache_hit,"
+    << "total_nodes_opened" 
+    << std::endl;
+    addHeads.close();
   }
-  log << "\ngoals=";
-  for (size_t i = 0; i < ins.N; ++i) {
-    auto k = ins.goals[i]->index;
-    log << "(" << get_x(k) << "," << get_y(k) << "),";
-  }
-  log << "\nsolution=\n";
-  for (size_t t = 0; t < solution.size(); ++t) {
-    log << t << ":";
-    auto C = solution[t];
-    for (auto v : C) {
-      log << "(" << get_x(v->index) << "," << get_y(v->index) << "),";
-    }
-    log << "\n";
-  }
+
+  std::ofstream log(output_name, std::ios::app);
+  log 
+  << ins.N << "," 
+  << map_recorded_name << "," 
+  << seed << "," 
+  << !solution.empty() << "," 
+  << get_sum_of_costs(solution) << "," 
+  << get_sum_of_costs_lower_bound(ins, dist_table) << "," 
+  << get_makespan(solution) << "," 
+  << get_makespan_lower_bound(ins, dist_table) << "," 
+  << get_sum_of_loss(solution) << "," 
+  << get_sum_of_costs_lower_bound(ins, dist_table) << "," 
+  << comp_time_ms << "," 
+  << cache_hit << "," 
+  << loop_cnt 
+  << std::endl;
   log.close();
+
+  // // log for visualizer
+  // auto get_x = [&](int k) { return k % ins.G.width; };
+  // auto get_y = [&](int k) { return k / ins.G.width; };
+
+  // std::ofstream log;
+  // log.open(output_name, std::ios::out);
+  // log << "agents=" << ins.N << "\n";
+  // log << "map_file=" << map_recorded_name << "\n";
+  // log << "solver=planner\n";
+  // log << "solved=" << !solution.empty() << "\n";
+  // log << "soc=" << get_sum_of_costs(solution) << "\n";
+  // log << "soc_lb=" << get_sum_of_costs_lower_bound(ins, dist_table) << "\n";
+  // log << "makespan=" << get_makespan(solution) << "\n";
+  // log << "makespan_lb=" << get_makespan_lower_bound(ins, dist_table) << "\n";
+  // log << "sum_of_loss=" << get_sum_of_loss(solution) << "\n";
+  // log << "sum_of_loss_lb=" << get_sum_of_costs_lower_bound(ins, dist_table)
+  //     << "\n";
+  // log << "comp_time=" << comp_time_ms << "\n";
+  // log << "cache_hit=" << cache_hit << "\n";
+  // log << "total_nodes_opened=" << loop_cnt << "\n";
+  // log << "seed=" << seed << "\n";
+  // if (log_short) return;
+  // log << "starts=";
+  // for (size_t i = 0; i < ins.N; ++i) {
+  //   auto k = ins.starts[i]->index;
+  //   log << "(" << get_x(k) << "," << get_y(k) << "),";
+  // }
+  // log << "\ngoals=";
+  // for (size_t i = 0; i < ins.N; ++i) {
+  //   auto k = ins.goals[i]->index;
+  //   log << "(" << get_x(k) << "," << get_y(k) << "),";
+  // }
+  // log << "\nsolution=\n";
+  // for (size_t t = 0; t < solution.size(); ++t) {
+  //   log << t << ":";
+  //   auto C = solution[t];
+  //   for (auto v : C) {
+  //     log << "(" << get_x(v->index) << "," << get_y(v->index) << "),";
+  //   }
+  //   log << "\n";
+  // }
+  // log.close();
 }

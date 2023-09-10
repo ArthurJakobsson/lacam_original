@@ -49,3 +49,4 @@ test*
 make
 Makefile
 CPack*
+logs

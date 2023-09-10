@@ -538,8 +538,17 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
   return false;
 }
 
+Solution solve(const Instance& ins, const int verbose, const Deadline* deadline,
+               std::mt19937* MT, torch::jit::script::Module* module, int k, bool neural_flag)
+{
+  info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tpre-processing");
+  auto planner = Planner(&ins, deadline, MT, module, k, verbose, neural_flag);
+  AllSolution all_solution = planner.solve();
+  return std::get<0>(all_solution);
+}
 
-AllSolution solve(const Instance& ins, const int verbose, const Deadline* deadline,
+
+AllSolution solveAll(const Instance& ins, const int verbose, const Deadline* deadline,
                std::mt19937* MT, torch::jit::script::Module* module, int k, bool neural_flag)
 {
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tpre-processing");

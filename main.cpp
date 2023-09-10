@@ -77,7 +77,7 @@ int main(int argc, char* argv[])
   int cache_hit, loop_cnt;
   
   const auto deadline = Deadline(time_limit_sec * 1000);
-  AllSolution all_solution = solve(ins, verbose - 1, &deadline, &MT, &module, k, neural_flag);
+  AllSolution all_solution = solveAll(ins, verbose - 1, &deadline, &MT, &module, k, neural_flag);
   const auto comp_time_ms = deadline.elapsed_ms();
   std::tie(solution, cache_hit, loop_cnt) = all_solution;
   // failure
@@ -91,6 +91,6 @@ int main(int argc, char* argv[])
 
   // post processing
   print_stats(verbose, ins, solution, comp_time_ms);
-  make_log(ins, solution, output_name, comp_time_ms, map_name, seed, log_short);
+  make_log(ins, all_solution, output_name, comp_time_ms, map_name, seed, log_short);
   return 0;
 }
