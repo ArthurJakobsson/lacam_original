@@ -305,12 +305,15 @@ Solution Planner::solve()
   // setup agents
   for (auto i = 0; i < N; ++i) A[i] = new Agent(i);
 
-  grid = get_map();
-  bd.resize(N);
-  for(int i = 0; i < N; ++i)
-  {
-    bd[i] = get_bd(i);
+  if(neural_flag){
+    grid = get_map();
+    bd.resize(N);
+    for(int i = 0; i < N; ++i)
+    {
+      bd[i] = get_bd(i);
+    }
   }
+
 
   // setup search queues
   std::stack<Node*> OPEN;
@@ -436,14 +439,18 @@ bool Planner::get_new_config(Node* S, Constraint* M) //Node contains the N by 5
     occupied_next[l] = A[i];
   }
 
-  //cache Nby5;
-  if(S->predictions.empty())
+  if(neural_flag)
   {
-    //cache old predictions
-    S->predictions = createNbyFive(S->C);
-  } else {
-    cache_hit+=1;
+    //cache Nby5;
+    if(S->predictions.empty())
+    {
+      //cache old predictions
+      S->predictions = createNbyFive(S->C);
+    } else {
+      cache_hit+=1;
+    }
   }
+
 
 
   // perform PIBT
@@ -521,13 +528,9 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
     int c = u->index % width; // column
     int r = (u->index - c) / width; // row
 
-
     // grid.index({c,r}) = 2;
-    std::cout << "\ngrid\n" << grid << std::endl;
+    // std::cout << "\ngrid\n" << grid << std::endl;
     // grid.index({c,r}) = 0;
-
-    // need to figure out if agent location hits the wall
-    // if agent hits wall then we should just jump to the next idea
 
     // empty or stay
     if (ak == nullptr || u == ai->v_now) return true;

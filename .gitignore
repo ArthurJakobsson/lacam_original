@@ -40,6 +40,6 @@
 **/build/*
 Manifest.toml
 map
-**/build_debug/*
+build_debug/*
 assets/*
-models/*
+
