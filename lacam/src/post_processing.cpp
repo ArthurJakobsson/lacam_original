@@ -132,7 +132,7 @@ static const std::regex r_map_name = std::regex(R"(.+/(.+))");
 
 void make_log(const Instance& ins, const AllSolution& all_solution,
               const std::string& output_name, const double comp_time_ms,
-              const std::string& map_name, const int seed, const bool log_short)
+              const std::string& map_name, const std::string& scen_name, const int seed, const bool log_short)
 {
   Solution solution;
   int cache_hit, loop_cnt;
@@ -154,6 +154,7 @@ void make_log(const Instance& ins, const AllSolution& all_solution,
     addHeads 
     << "agents," 
     << "map_file," 
+    << "scen_name,"
     << "seed," 
     << "solved," 
     << "soc," 
@@ -173,6 +174,7 @@ void make_log(const Instance& ins, const AllSolution& all_solution,
   log 
   << ins.N << "," 
   << map_recorded_name << "," 
+  << scen_name << "," 
   << seed << "," 
   << !solution.empty() << "," 
   << get_sum_of_costs(solution) << "," 

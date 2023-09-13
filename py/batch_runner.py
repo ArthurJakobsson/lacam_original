@@ -20,7 +20,7 @@ class BatchRunner:
         self.neural=neural
         self.output = output
         map_prefix = mapName.split('/')[-1][:-4]
-        self.outputCSVFile = "logs/" + map_prefix + ".csv"
+        self.outputCSVFile = "logs/nn_" + map_prefix + ".csv"
 
     def runSingleSettingsOnMap(self, numAgents, aSeed):
         # Main command
@@ -46,7 +46,7 @@ class BatchRunner:
     def detectExistingStatus(self, numAgents):
         if exists(self.outputCSVFile):
             df = pd.read_csv(self.outputCSVFile)
-            df = df[(df["agents"] == numAgents)]
+            df = df[(df["agents"] == numAgents) & (df["scen_name"] == self.scen)]
             numFailed = len(df[(df["solved"] == '0')])
             return len(df), numFailed
         return 0, 0
@@ -54,7 +54,7 @@ class BatchRunner:
     def runBatchExps(self, agentNumbers, seeds):
         for aNum in agentNumbers:
             numRan, numFailed = self.detectExistingStatus(aNum)
-            if numFailed >= len(seeds)/2:  # Check if existing run all failed
+            if numFailed > len(seeds)/2:  # Check if existing run all failed
                 print(
                     "Terminating early because all failed with {} number of agents".format(aNum))
                 break
@@ -91,7 +91,7 @@ def lacamExps(mapName, numScen, model, k, numSeeds):
             verbose=1,
             cutoffTime=60,
             neural="true",
-            output='logs/' + map_prefix + ".csv"
+            output='logs/nn_' + map_prefix + ".csv"
         )
 
         agentRange = [1] + list(range(10, 100+1, 10))
