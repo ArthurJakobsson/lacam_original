@@ -180,11 +180,11 @@ torch::Tensor Planner::get_bd(int a_id)
   return t_bd;
 }
 
-torch::Tensor Planner::slice_and_fix_pad(torch::Tensor curr_bd, int row, int col, bool center=true, int row2=-1, int col2=-1)
+torch::Tensor Planner::slice_and_fix_pad(torch::Tensor curr_bd, int row, int col, bool center=true)
 {
   torch::Tensor loc_grid = grid.index({Slice(row, row+2*K+1),
 											Slice(col, col + 2*K + 1)});
-  double curr_val = center ? curr_bd.index({row+K, col+K}).item<double>() : curr_bd.index({row2+K, col2+K}).item<double>();
+  double curr_val = center ? curr_bd.index({row+K, col+K}).item<double>() : 0;
   // std::cout << "pre" << curr_bd.index({Slice(row, row+2*K+1),
 	// 										Slice(col, col + 2*K + 1)}) << std::endl;
   torch::Tensor loc_bd = curr_bd.index({Slice(row, row+2*K+1),
@@ -204,7 +204,7 @@ torch::Tensor Planner::bd_helper(std::vector<std::pair<int, std::pair<int,int>>>
   //# ATTEMPT flip first and second
   // int r = (dist[nth_help].second).second;
   // int c = (dist[nth_help].second).first;
-  return slice_and_fix_pad(bd[dist[nth_help].first], curr_row, curr_col);
+  return slice_and_fix_pad(bd[dist[nth_help].first], curr_row, curr_col, false);
 }
 
 std::vector<double> help_loc_helper(std::vector<std::pair<int, std::pair<int,int>>>& dist,

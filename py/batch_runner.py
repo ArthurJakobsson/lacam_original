@@ -20,7 +20,7 @@ class BatchRunner:
         self.neural=neural
         self.output = output
         map_prefix = mapName.split('/')[-1][:-4]
-        self.outputCSVFile = "logs/nn_" + map_prefix + ".csv"
+        self.outputCSVFile = "logs/nntest_" + map_prefix + ".csv"
 
     def runSingleSettingsOnMap(self, numAgents, aSeed):
         # Main command
@@ -91,7 +91,7 @@ def lacamExps(mapName, numScen, model, k, numSeeds):
             verbose=1,
             cutoffTime=60,
             neural="true",
-            output='logs/nn_' + map_prefix + ".csv"
+            output='logs/nntest_' + map_prefix + ".csv"
         )
 
         agentRange = [1] + list(range(10, 100+1, 10))
