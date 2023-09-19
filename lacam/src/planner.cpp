@@ -184,9 +184,8 @@ torch::Tensor Planner::slice_and_fix_pad(torch::Tensor curr_bd, int row, int col
 {
   torch::Tensor loc_grid = grid.index({Slice(row, row+2*K+1),
 											Slice(col, col + 2*K + 1)});
-  double curr_val = curr_bd.index({row+K, col+K}).item<double>();
   torch::Tensor bd_sliced= curr_bd.index({Slice(row, row+2*K+1),
-											Slice(col, col + 2*K + 1)}) - curr_val;
+											Slice(col, col + 2*K + 1)});
   bd_sliced = bd_sliced * (1-loc_grid);
   // std::cout << "post" << bd_sliced << std::endl;
   return bd_sliced;
@@ -214,6 +213,21 @@ std::vector<double> help_loc_helper(std::vector<std::pair<int, std::pair<int,int
     point[1] = (dist[nth_help].second).second-curr_y;
   }
   return point;
+}
+
+std::vector<float> prefix_sum_help(std::vector<double> nn_values)
+{
+  int len = nn_values.size();
+  std::vector<float> nn_prefix_sum(len);
+  for(int r_n=0; r_n<len;r_n++)
+  {
+    nn_prefix_sum[r_n] = nn_values[r_n];
+    if(r_n!=0)
+    {
+      nn_prefix_sum[r_n] = nn_prefix_sum[r_n]+nn_prefix_sum[r_n-1];
+    }
+  }
+  return nn_prefix_sum;
 }
 
 std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
@@ -269,8 +283,35 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
         // else: index = 4
     Vertices U = ins->G.U;
 
+    // semi-randomize the ordering of the actions
+    std::vector<double> copy(5);
+    std::vector<int> indices(5);
+    std::vector<int> ordering(5);
+    for(int k_n = 0; k_n<5; k_n++)
+    {
+      copy[k_n]= v_NN_res[k_n];
+      indices[k_n] = k_n;
+    }
+    for (int i = 0; i<5; i++)
+    {
+      std::vector<float> prefix = prefix_sum_help(copy);
+      float sum = copy[copy.size()-1];
+      float rand= get_random_float(MT, 0, sum);
+      for(int j = 0; j<(int)copy.size();j++)
+      {
+        if (rand<=prefix[0])
+        {
+          ordering[i] = indices[j];
+          copy.erase(copy.begin()+j);
+          indices.erase(indices.begin()+j);
+          break;
+        }
+      }
+    }
+
     // agent location add for "no action"
-    predictions[a_id][U[width * curr_y + curr_x]->id] = v_NN_res[0];
+    int zero_ind = find(ordering.begin(), ordering.end(), 0) - ordering.begin();
+    predictions[a_id][U[width * curr_y + curr_x]->id] = 5-zero_ind;
     int delta_y[4] = {1, -1, 0, 0}; //up down left right
     int delta_x[4] = {0, 0, -1, 1}; //up down left right
     int nn_index[4] = {3,2,4,1};//{1, 4, 3, 2};
@@ -282,9 +323,23 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
       auto location = U[width * (this_y) + (this_x)];
       if(location!=nullptr)
       {
-        predictions[a_id][location->id] = v_NN_res[nn_index[j]];
+        int index = find(ordering.begin(), ordering.end(), nn_index[j]) - ordering.begin();
+        predictions[a_id][location->id] = 5-index;
       }
     }
+
+
+    // numbers 0.2 0.3 0.4 0.05 0.05
+    // random sample number from 0 to 1
+    // ex: sample 0.6, 3rd bucket, remove bucket and normalize
+    // new numbers = 0.2/0.6 0.3/0.6 0.05/0.6 0.05/0.6
+    // sample 0.1, 1st bucket, remove bucket...
+    // new numbers = 0.3 0.05 0.05 <-- normalize by dividing by 0.4
+    // repeat total of 4 times
+    // sample using MT randomness
+
+    //sort using sampling here and just add weights of 5 4 3 2 1
+
     // working example with using D.get inputs (recreate LaCAM)
     // std::vector<Vertex*> c_next = C[i]->neighbor;
     // size_t next_size = c_next.size();
@@ -482,7 +537,8 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
   }
   C_next[i][Ks] = ai->v_now;
 
-  //make this easily toggleable
+
+
 
   if(neural_flag)
   {
@@ -522,15 +578,6 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
     // reserve next location
     occupied_next[u->id] = ai;
     ai->v_next = u;
-
-    int width = ins->G.width;
-    // int height = ins->G.height;
-    int c = u->index % width; // column
-    int r = (u->index - c) / width; // row
-
-    // grid.index({c,r}) = 2;
-    // std::cout << "\ngrid\n" << grid << std::endl;
-    // grid.index({c,r}) = 0;
 
     // empty or stay
     if (ak == nullptr || u == ai->v_now) return true;
