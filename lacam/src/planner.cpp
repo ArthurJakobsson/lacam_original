@@ -16,7 +16,6 @@ Constraint::Constraint(Constraint* parent, int i, Vertex* v)
     : who(parent->who), where(parent->where), depth(parent->depth + 1)
 {
   who.push_back(i);
-  where.push_back(v);
 }
 
 Constraint::~Constraint(){};
@@ -185,18 +184,16 @@ torch::Tensor Planner::slice_and_fix_pad(torch::Tensor curr_bd, int row, int col
   torch::Tensor loc_grid = grid.index({Slice(row, row+2*K+1),
 											Slice(col, col + 2*K + 1)});
   double curr_val = center ? curr_bd.index({row+K, col+K}).item<double>() : 0;
-  // std::cout << "pre" << curr_bd.index({Slice(row, row+2*K+1),
-	// 										Slice(col, col + 2*K + 1)}) << std::endl;
   torch::Tensor loc_bd = curr_bd.index({Slice(row, row+2*K+1),
 											Slice(col, col + 2*K + 1)}) - curr_val;
   loc_bd = loc_bd * (1-loc_grid);
-  // std::cout << "post" << loc_bd << std::endl;
   return loc_bd;
 }
 
 torch::Tensor Planner::bd_helper(std::vector<std::pair<int, std::pair<int,int>>>& dist,
                         int nth_help, int curr_size, int curr_row, int curr_col)
 {
+  // if (true)
   if(nth_help >= curr_size)
   {
     return torch::zeros({2*K+1, 2*K+1});
@@ -211,12 +208,28 @@ std::vector<double> help_loc_helper(std::vector<std::pair<int, std::pair<int,int
                         int nth_help, int curr_size, int curr_row, int curr_col)
 {
   std::vector<double> point = {0, 0};
+  // if (false)
   if(nth_help < curr_size)
   {
     point[0] = (dist[nth_help].second).first - curr_row;
     point[1] = (dist[nth_help].second).second - curr_col;
   }
   return point;
+}
+
+std::vector<float> prefix_sum_help(std::vector<double> nn_values)
+{
+  int len = nn_values.size();
+  std::vector<float> nn_prefix_sum(len);
+  for(int r_n=0; r_n<len;r_n++)
+  {
+    nn_prefix_sum[r_n] = nn_values[r_n];
+    if(r_n!=0)
+    {
+      nn_prefix_sum[r_n] = nn_prefix_sum[r_n]+nn_prefix_sum[r_n-1];
+    }
+  }
+  return nn_prefix_sum;
 }
 
 std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
@@ -233,7 +246,7 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     int curr_row = (curr_index - curr_col) / width;
     torch::Tensor loc_grid = grid.index({Slice(curr_row, curr_row+2*K+1),
 											Slice(curr_col, curr_col + 2*K + 1)});
-    torch::Tensor loc_bd =  slice_and_fix_pad(bd[a_id], curr_row, curr_col);
+    torch::Tensor loc_bd =  slice_and_fix_pad(bd[a_id], curr_row, curr_col, true);
     // std::cout << loc_bd << std::endl;
     // get 4 nearest agents
     std::vector<std::pair<int, std::pair<int,int>>> locs; //hold agt id, loc
@@ -263,6 +276,7 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
       helper_loc[i-1] = help_loc_helper(locs, i, locs.size(), curr_row, curr_col);
       help_bd[i-1] = bd_helper(locs, i, locs.size(), curr_row, curr_col);
     }
+    // std::cout << "loc_bd\n" << loc_bd << std::endl;
     at::Tensor NN_result = inputs_to_torch(loc_grid, loc_bd, help_bd, helper_loc);
     // std::cout << NN_result << std::endl;
     std::vector<double> v_NN_res(NN_result.data_ptr<float>(), NN_result.data_ptr<float>() + NN_result.numel());
@@ -272,6 +286,32 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
         // elif label[0] == -1 and label[1] == 0: index = 3
         // else: index = 4
     Vertices U = ins->G.U;
+
+    // semi-randomize the ordering of the actions
+    std::vector<double> copy(5);
+    std::vector<int> indices(5);
+    std::vector<int> ordering(5);
+    for(int k_n = 0; k_n<5; k_n++)
+    {
+      copy[k_n]= v_NN_res[k_n];
+      indices[k_n] = k_n;
+    }
+    for (int i = 0; i<5; i++)
+    {
+      std::vector<float> prefix = prefix_sum_help(copy);
+      float sum = copy[copy.size()-1];
+      float rand= get_random_float(MT, 0, sum);
+      for(int j = 0; j<(int)copy.size();j++)
+      {
+        if (rand<=prefix[0])
+        {
+          ordering[i] = indices[j];
+          copy.erase(copy.begin()+j);
+          indices.erase(indices.begin()+j);
+          break;
+        }
+      }
+    }
 
     // agent location add for "no action"
     // predictions[a_id][U[width * curr_y + curr_x]->id] = v_NN_res[0];
@@ -309,12 +349,15 @@ AllSolution Planner::solve()
   // setup agents
   for (auto i = 0; i < N; ++i) A[i] = new Agent(i);
 
-  grid = get_map();
-  bd.resize(N);
-  for(int i = 0; i < N; ++i)
-  {
-    bd[i] = get_bd(i);
+  if(neural_flag){
+    grid = get_map();
+    bd.resize(N);
+    for(int i = 0; i < N; ++i)
+    {
+      bd[i] = get_bd(i);
+    }
   }
+
 
   // setup search queues
   std::stack<Node*> OPEN;
@@ -442,14 +485,18 @@ bool Planner::get_new_config(Node* S, Constraint* M) //Node contains the N by 5
     occupied_next[l] = A[i];
   }
 
-  //cache Nby5;
-  if(S->predictions.empty())
+  if(neural_flag)
   {
-    //cache old predictions
-    S->predictions = createNbyFive(S->C);
-  } else {
-    cache_hit+=1;
+    //cache Nby5;
+    if(S->predictions.empty())
+    {
+      //cache old predictions
+      S->predictions = createNbyFive(S->C);
+    } else {
+      cache_hit+=1;
+    }
   }
+
 
 
   // perform PIBT
@@ -481,7 +528,8 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
   }
   C_next[i][Ks] = ai->v_now;
 
-  //make this easily toggleable
+
+
 
   if(neural_flag)
   {
@@ -527,6 +575,7 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
 
     // priority inheritance
     if (ak->v_next == nullptr && !funcPIBT(ak, preds)) continue;
+
 
     // success to plan next one step
     return true;

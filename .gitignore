@@ -40,8 +40,9 @@
 **/build/*
 Manifest.toml
 map
-**/build_debug/*
+build_debug/*
 assets/*
+<<<<<<< HEAD
 models/*
 CMakeFiles
 cmake*
@@ -50,3 +51,6 @@ make
 Makefile
 CPack*
 logs
+=======
+
+>>>>>>> 667c7c7efd457e6d6c5f19866af9a7eb8ad423ee
