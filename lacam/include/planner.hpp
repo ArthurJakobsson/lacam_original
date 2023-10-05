@@ -76,12 +76,12 @@ struct Planner {
 
   Planner(const Instance* _ins, const Deadline* _deadline, std::mt19937* _MT,
           torch::jit::script::Module* _module, int _k = 4, int _verbose = 0, bool _neural_flag = true);
-  torch::Tensor slice_and_fix_pad(torch::Tensor curr_bd, int row, int col);
+  torch::Tensor slice_and_fix_pad(torch::Tensor curr_bd, int row, int col, bool center, int row2, int col2);
   std::vector<std::map<int, double>> createNbyFive (const Vertices &C);
   torch::Tensor get_map();
   torch::Tensor get_bd(int a_id);
   torch::Tensor bd_helper(std::vector<std::pair<int, std::pair<int,int>>>& dist,
-                        int nth_help, int curr_size, int r, int c);
+                        int nth_help, int curr_size, int curr_x, int curr_y);
   at::Tensor inputs_to_torch(torch::Tensor& t_grid, torch::Tensor& t_bd,
   std::vector<torch::Tensor>& helper_bds, std::vector<std::vector<double>>& helper_loc);
   Solution solve();
