@@ -1,0 +1,22 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Lacam",
+        "type": "cppdbg",
+        "request": "launch",
+        "program": "${workspaceFolder}/build_debug/main",
+        "args": ["-i", "scripts/scen/scen-even/den312d-even-1.scen", "-m", "scripts/map/den312d.map", "-N" ,"2", "-v", "1", "-k", "8", "--time_limit_sec=100", "--neural_flag=false", "--model=models/den312d_2.pt"],
+        "stopAtEntry": false,
+        "cwd": "${workspaceFolder}",
+        "environment": [],
+        "externalConsole": false,
+        "MIMode": "gdb",
+        "preLaunchTask": "Cmake Debug"
+      }
+  
+    ]
+  }
