@@ -42,4 +42,14 @@ Manifest.toml
 map
 build_debug/*
 assets/*
+<<<<<<< HEAD
 
+=======
+models/*
+CMakeFiles
+cmake*
+test*
+make
+Makefile
+CPack*
+>>>>>>> f226749d0ffb738742ba13c153567462bca47d21
