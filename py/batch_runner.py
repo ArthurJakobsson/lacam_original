@@ -24,7 +24,7 @@ class BatchRunner:
 
     def runSingleSettingsOnMap(self, numAgents, aSeed):
         # Main command
-        command = "./build/main"
+        command = "./build_debug/main"
 
         # Batch experiment settings
         command += " --seed={}".format(aSeed)
@@ -90,7 +90,7 @@ def lacamExps(mapName, numScen, model, k, numSeeds):
             k=k,
             verbose=1,
             cutoffTime=60,
-            neural="true",
+            neural=[True, False][1],
             output='logs/nntest_' + map_prefix + ".csv"
         )
 
@@ -102,7 +102,11 @@ def lacamExps(mapName, numScen, model, k, numSeeds):
         myBR = BatchRunner(**expSettings)
         myBR.runBatchExps(agentRange, seeds)
 
+"""
+Example run:
+python3 py/batch_runner.py --map scripts/map/random-32-32-10.map --numScen 1 --model models/den312d_2.pt --k 8 --numSeeds 1
 
+"""
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(

@@ -16,6 +16,7 @@ Constraint::Constraint(Constraint* parent, int i, Vertex* v)
     : who(parent->who), where(parent->where), depth(parent->depth + 1)
 {
   who.push_back(i);
+  where.push_back(v);
 }
 
 Constraint::~Constraint(){};
@@ -183,7 +184,7 @@ torch::Tensor Planner::slice_and_fix_pad(torch::Tensor curr_bd, int row, int col
 {
   torch::Tensor loc_grid = grid.index({Slice(row, row+2*K+1),
 											Slice(col, col + 2*K + 1)});
-  double curr_val = center ? curr_bd.index({row+K, col+K}).item<double>() : curr_bd.index({row2+K, col2+K}).item<double>();
+  double curr_val = center ? curr_bd.index({row+K, col+K}).item<double>() : 0;
   // std::cout << "pre" << curr_bd.index({Slice(row, row+2*K+1),
 	// 										Slice(col, col + 2*K + 1)}) << std::endl;
   torch::Tensor loc_bd = curr_bd.index({Slice(row, row+2*K+1),
