@@ -16,7 +16,6 @@ Constraint::Constraint(Constraint* parent, int i, Vertex* v)
     : who(parent->who), where(parent->where), depth(parent->depth + 1)
 {
   who.push_back(i);
-  where.push_back(v);
 }
 
 Constraint::~Constraint(){};
@@ -180,7 +179,7 @@ torch::Tensor Planner::get_bd(int a_id)
   return t_bd;
 }
 
-torch::Tensor Planner::slice_and_fix_pad(torch::Tensor curr_bd, int row, int col, bool center=true, int row2=-1, int col2=-1)
+torch::Tensor Planner::slice_and_fix_pad(torch::Tensor curr_bd, int row, int col, bool center=true)
 {
   torch::Tensor loc_grid = grid.index({Slice(row, row+2*K+1),
 											Slice(col, col + 2*K + 1)});
@@ -190,13 +189,13 @@ torch::Tensor Planner::slice_and_fix_pad(torch::Tensor curr_bd, int row, int col
   torch::Tensor loc_bd = curr_bd.index({Slice(row, row+2*K+1),
 											Slice(col, col + 2*K + 1)}) - curr_val;
   loc_bd = loc_bd * (1-loc_grid);
-  // std::cout << "post" << loc_bd << std::endl;
   return loc_bd;
 }
 
 torch::Tensor Planner::bd_helper(std::vector<std::pair<int, std::pair<int,int>>>& dist,
                         int nth_help, int curr_size, int curr_row, int curr_col)
 {
+  // if (true)
   if(nth_help >= curr_size)
   {
     return torch::zeros({2*K+1, 2*K+1});
@@ -204,13 +203,14 @@ torch::Tensor Planner::bd_helper(std::vector<std::pair<int, std::pair<int,int>>>
   //# ATTEMPT flip first and second
   // int r = (dist[nth_help].second).second;
   // int c = (dist[nth_help].second).first;
-  return slice_and_fix_pad(bd[dist[nth_help].first], curr_row, curr_col);
+  return slice_and_fix_pad(bd[dist[nth_help].first], curr_row, curr_col, false);
 }
 
 std::vector<double> help_loc_helper(std::vector<std::pair<int, std::pair<int,int>>>& dist,
                         int nth_help, int curr_size, int curr_row, int curr_col)
 {
   std::vector<double> point = {0, 0};
+  // if (false)
   if(nth_help < curr_size)
   {
     point[0] = (dist[nth_help].second).first - curr_row;
@@ -248,7 +248,7 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     int curr_row = (curr_index - curr_col) / width;
     torch::Tensor loc_grid = grid.index({Slice(curr_row, curr_row+2*K+1),
 											Slice(curr_col, curr_col + 2*K + 1)});
-    torch::Tensor loc_bd =  slice_and_fix_pad(bd[a_id], curr_row, curr_col);
+    torch::Tensor loc_bd =  slice_and_fix_pad(bd[a_id], curr_row, curr_col, true);
     // std::cout << loc_bd << std::endl;
     // get 4 nearest agents
     std::vector<std::pair<int, std::pair<int,int>>> locs; //hold agt id, loc
@@ -358,7 +358,7 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
   return predictions;
 }
 
-Solution Planner::solve()
+AllSolution Planner::solve()
 {
 
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tstart search");
@@ -456,12 +456,14 @@ Solution Planner::solve()
        solution.empty() ? (OPEN.empty() ? "no solution" : "failed")
                         : "solution found",
        "\tloop_itr:", loop_cnt, "\texplored:", CLOSED.size());
+  
+
   // memory management
   for (auto a : A) delete a;
   for (auto M : GC) delete M;
   for (auto p : CLOSED) delete p.second;
 
-  return solution;
+  return make_tuple(solution, cache_hit, loop_cnt); 
 }
 
 bool Planner::get_new_config(Node* S, Constraint* M) //Node contains the N by 5
@@ -602,8 +604,17 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
   return false;
 }
 
-
 Solution solve(const Instance& ins, const int verbose, const Deadline* deadline,
+               std::mt19937* MT, torch::jit::script::Module* module, int k, bool neural_flag)
+{
+  info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tpre-processing");
+  auto planner = Planner(&ins, deadline, MT, module, k, verbose, neural_flag);
+  AllSolution all_solution = planner.solve();
+  return std::get<0>(all_solution);
+}
+
+
+AllSolution solveAll(const Instance& ins, const int verbose, const Deadline* deadline,
                std::mt19937* MT, torch::jit::script::Module* module, int k, bool neural_flag)
 {
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tpre-processing");

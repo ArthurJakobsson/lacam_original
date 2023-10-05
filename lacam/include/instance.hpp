@@ -30,3 +30,4 @@ struct Instance {
 
 // solution: a sequence of configurations
 using Solution = std::vector<Config>;
+using AllSolution = std::tuple<std::vector<Config>, int, int>;
