@@ -82,6 +82,16 @@
         "valarray": "cpp",
         "variant": "cpp",
         "vector": "cpp",
-        "algorithm": "cpp"
+        "algorithm": "cpp",
+        "strstream": "cpp",
+        "*.tcc": "cpp",
+        "codecvt": "cpp",
+        "functional": "cpp",
+        "iterator": "cpp",
+        "memory_resource": "cpp",
+        "utility": "cpp",
+        "shared_mutex": "cpp",
+        "thread": "cpp",
+        "cfenv": "cpp"
     }
 }

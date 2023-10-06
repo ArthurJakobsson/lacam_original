@@ -58,7 +58,8 @@ int main(int argc, char* argv[])
   const auto N = std::stoi(program.get<std::string>("num"));
   const auto ins = scen_name.size() > 0 ? Instance(scen_name, map_name, N)
                                         : Instance(map_name, &MT, N);
-  bool neural_flag = program.get<std::string>("neural_flag") == "true";
+  bool neural_flag = program.get<std::string>("neural_flag") == "true" ||
+                      program.get<std::string>("neural_flag") == "True";
   if (!ins.is_valid(1)) return 1;
 
   //setup model

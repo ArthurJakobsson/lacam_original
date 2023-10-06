@@ -283,11 +283,11 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     at::Tensor NN_result = inputs_to_torch(loc_grid, loc_bd, help_bd, helper_loc);
     // std::cout << NN_result << std::endl;
     std::vector<double> v_NN_res(NN_result.data_ptr<float>(), NN_result.data_ptr<float>() + NN_result.numel());
-    //   if label[0] == 0 and label[1] == 0: index = 0
-    //    elif label[0] == 0 and label[1] == 1: index = 1
-        // elif label[0] == 1 and label[1] == 0: index = 2
-        // elif label[0] == -1 and label[1] == 0: index = 3
-        // else: index = 4
+    //   if label[0] == 0 and label[1] == 0: index = 0 // waiting
+    //    elif label[0] == 0 and label[1] == 1: index = 1 // increase col
+        // elif label[0] == 1 and label[1] == 0: index = 2 // increase row
+        // elif label[0] == -1 and label[1] == 0: index = 3 // decrease row
+        // else: index = 4 // increase col
     Vertices U = ins->G.U;
 
     // semi-randomize the ordering of the actions
@@ -317,12 +317,15 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     }
 
     // agent location add for "no action"
-    int zero_ind = find(ordering.begin(), ordering.end(), 0) - ordering.begin();
-    predictions[a_id][U[width * curr_row + curr_col]->id] = 5-zero_ind;
-    int delta_row[4] = {0, 1, -1, 0}; //up down left right
-    int delta_col[4] = {0, 0, -1, 1}; //up down left right
-    int nn_index[4] = {3,2,4,1};//{1, 4, 3, 2};
-    for(int j = 0; j<4; j++)
+    // int zero_ind = find(ordering.begin(), ordering.end(), 0) - ordering.begin();
+    // predictions[a_id][U[width * curr_row + curr_col]->id] = 5-zero_ind;
+    // int delta_row[4] = {0, 1, -1, 0}; //up down left right
+    // int delta_col[4] = {0, 0, -1, 1}; //up down left right
+    // int nn_index[4] = {3,2,4,1};//{1, 4, 3, 2};
+    int delta_row[5] = {0, 0, 1, -1,  0}; // wait, +col, +row, -row, -col
+    int delta_col[5] = {0, 1, 0,  0, -1};
+    int nn_index[5] =  {0, 1, 2,  3,  4};
+    for(int j = 0; j<5; j++)
     {
       int this_row = curr_row+delta_row[j];
       int this_col = curr_col+delta_col[j];
@@ -330,8 +333,9 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
       auto location = U[width * (this_row) + (this_col)];
       if(location!=nullptr)
       {
-        int index = find(ordering.begin(), ordering.end(), nn_index[j]) - ordering.begin();
-        predictions[a_id][location->id] = 5-index;
+        // int index = find(ordering.begin(), ordering.end(), nn_index[j]) - ordering.begin();
+        // predictions[a_id][location->id] = 5-index;
+        // predictions[a_id][location->id] = v_NN_res[nn_index[j]];
       }
     }
 
@@ -348,13 +352,12 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     //sort using sampling here and just add weights of 5 4 3 2 1
 
     // working example with using D.get inputs (recreate LaCAM)
-    // std::vector<Vertex*> c_next = C[i]->neighbor;
-    // size_t next_size = c_next.size();
-    // predictions[i][C[i]->id] = D.get(i, C[i]->id);
-    // for(size_t j = 0; j < next_size; j++)
-    // {
-    //   predictions[i][c_next[j]->id] = D.get(i, c_next[j]);
-    // }
+    std::vector<Vertex*> c_next = C[a_id]->neighbor;
+    size_t next_size = c_next.size();
+    predictions[a_id][C[a_id]->id] = -D.get(a_id, C[a_id]->id);
+    for(size_t j = 0; j < next_size; j++) {
+      predictions[a_id][c_next[j]->id] = -D.get(a_id, c_next[j]);
+    }
   }
   return predictions;
 }
