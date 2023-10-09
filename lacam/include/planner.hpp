@@ -76,14 +76,14 @@ struct Planner {
 
   Planner(const Instance* _ins, const Deadline* _deadline, std::mt19937* _MT,
           torch::jit::script::Module* _module, int _k = 4, int _verbose = 0, bool _neural_flag = true);
-  torch::Tensor slice_and_fix_pad(torch::Tensor curr_bd, int row, int col, bool center);
+  torch::Tensor slice_and_fix_pad(torch::Tensor curr_bd, int row, int col, int subtract_row, int subtract_col);
   std::vector<std::map<int, double>> createNbyFive (const Vertices &C);
   torch::Tensor get_map();
   torch::Tensor get_bd(int a_id);
-  torch::Tensor bd_helper(std::vector<std::pair<int, std::pair<int,int>>>& dist,
-                        int nth_help, int curr_size, int curr_x, int curr_y);
+  torch::Tensor bd_helper(int which_agent, int curr_row, int curr_col, 
+                        int agent_row, int agent_col);
   at::Tensor inputs_to_torch(torch::Tensor& t_grid, torch::Tensor& t_bd,
-  std::vector<torch::Tensor>& helper_bds, std::vector<std::vector<double>>& helper_loc);
+        std::vector<torch::Tensor>& helper_bds, std::vector<std::vector<double>>& helper_loc);
   AllSolution solve();
   bool get_new_config(Node* S, Constraint* M);
   bool funcPIBT(Agent* ai,std::vector<std::map<int,double>> &preds);
