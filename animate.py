@@ -27,16 +27,27 @@ width = (int)(f.readline().split(" ")[1])
 f.readline()
 
 agents = (int)(l.readline().split("=")[1])
-for i in range(2,16):
-  print(l.readline())
+
 
 ON = 255
 OFF = 0
 vals = [ON, OFF]
 
 # populate grid with random on/off - more off than on
-grid = np.random.choice(vals, height*width, p=[0.2, 0.8]).reshape(height, width)
+grid = np.zeros((height, width))
 print(grid.shape)
+
+for i in range(2,16):
+  if i==14:
+    coords = l.readline().split("=")[1]
+    coords = coords.split("),")
+    for a in range(agents):
+      splitVal = coords[a].split(",")
+      r = (int)(splitVal[0][1:])
+      c = (int)(splitVal[1])
+      grid[c,r] = 200
+  else:
+    print(l.readline())
 
 for r in range(height):
   row = f.readline()
@@ -45,8 +56,6 @@ for r in range(height):
       continue
     if ch=='T' or ch=='@':
       grid[r,c] = ON
-    else:
-      grid[r,c] = 0
 
 original_grid = grid.copy()
 
