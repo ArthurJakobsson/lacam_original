@@ -131,7 +131,8 @@ void print_stats(const int verbose, const Instance& ins,
 static const std::regex r_map_name = std::regex(R"(.+/(.+))");
 
 void make_log(const Instance& ins, const AllSolution& all_solution,
-              const std::string& output_name, const double comp_time_ms,
+              const std::string& output_name, const std::string& output_agent_paths,
+              const double comp_time_ms,
               const std::string& map_name, const std::string& scen_name, const int seed, const bool log_short)
 {
   Solution solution;
@@ -190,11 +191,11 @@ void make_log(const Instance& ins, const AllSolution& all_solution,
   log.close();
 
   // // log for visualizer
-  // auto get_x = [&](int k) { return k % ins.G.width; };
-  // auto get_y = [&](int k) { return k / ins.G.width; };
+  auto get_x = [&](int k) { return k % ins.G.width; };
+  auto get_y = [&](int k) { return k / ins.G.width; };
 
   // std::ofstream log;
-  // log.open(output_name, std::ios::out);
+  log.open(output_agent_paths, std::ios::out);
   // log << "agents=" << ins.N << "\n";
   // log << "map_file=" << map_recorded_name << "\n";
   // log << "solver=planner\n";
@@ -222,13 +223,13 @@ void make_log(const Instance& ins, const AllSolution& all_solution,
   //   log << "(" << get_x(k) << "," << get_y(k) << "),";
   // }
   // log << "\nsolution=\n";
-  // for (size_t t = 0; t < solution.size(); ++t) {
-  //   log << t << ":";
-  //   auto C = solution[t];
-  //   for (auto v : C) {
-  //     log << "(" << get_x(v->index) << "," << get_y(v->index) << "),";
-  //   }
-  //   log << "\n";
-  // }
-  // log.close();
+  for (size_t t = 0; t < solution.size(); ++t) {
+    log << t << ":";
+    auto C = solution[t];
+    for (auto v : C) {
+      log << "(" << get_x(v->index) << "," << get_y(v->index) << "),";
+    }
+    log << "\n";
+  }
+  log.close();
 }

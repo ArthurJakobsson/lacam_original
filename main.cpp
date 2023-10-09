@@ -21,9 +21,12 @@ int main(int argc, char* argv[])
   program.add_argument("-t", "--time_limit_sec")
       .help("time limit sec")
       .default_value(std::string("10"));
-  program.add_argument("-o", "--output")
-      .help("output file")
-      .default_value(std::string("./build/result.txt"));
+  program.add_argument("-o", "--outputcsv")
+      .help("output csv")
+      .default_value(std::string("./build/result.csv"));
+  program.add_argument("-p", "--outputpaths")
+      .help("output agent paths")
+      .default_value(std::string("./build/result_paths.txt"));
   program.add_argument("-l", "--log_short")
       .default_value(false)
       .implicit_value(true);
@@ -51,7 +54,8 @@ int main(int argc, char* argv[])
   const auto seed = std::stoi(program.get<std::string>("seed"));
   auto MT = std::mt19937(seed);
   const auto map_name = program.get<std::string>("map");
-  const auto output_name = program.get<std::string>("output");
+  const auto output_csv = program.get<std::string>("outputcsv");
+  const auto output_agent_paths = program.get<std::string>("outputpaths");
   const auto log_short = program.get<bool>("log_short");
   const auto model_name = program.get<std::string>("model");
   const auto k = std::stoi(program.get<std::string>("kval"));
@@ -92,6 +96,6 @@ int main(int argc, char* argv[])
 
   // post processing
   print_stats(verbose, ins, solution, comp_time_ms);
-  make_log(ins, all_solution, output_name, comp_time_ms, map_name, scen_name, seed, log_short);
+  make_log(ins, all_solution, output_csv, output_agent_paths, comp_time_ms, map_name, scen_name, seed, log_short);
   return 0;
 }
