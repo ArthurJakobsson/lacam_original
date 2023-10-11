@@ -328,7 +328,7 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     // int nn_index[5] =  {0, 2, 1,  4,  3};
     // int nn_index[5] =  {0, 1, 3,  2,  4};
     // int nn_index[5] =  {0, 2, 1,  4,  3}; // If row col is transposed to training
-    int nn_index[5] =  {0, 1, 2,  3,  4}; // If row col is identical to training
+    int nn_index[5] = {0, 1, 2,  3,  4}; // If row col is identical to training
     for(int j = 0; j<5; j++)
     {
       int this_row = curr_row+delta_row[j];

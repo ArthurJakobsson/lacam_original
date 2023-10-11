@@ -85,7 +85,8 @@ int get_sum_of_loss(const Solution& solution)
   for (size_t i = 0; i < N; ++i) {
     auto g = solution.back()[i];
     for (size_t t = 1; t < T; ++t) {
-      if (solution[t - 1][i] != g || solution[t][i] != g) ++c;
+      if (solution[t][i] != g) ++c; // RVMod
+      // if (solution[t - 1][i] != g || solution[t][i] != g) ++c;
     }
   }
   return c;
