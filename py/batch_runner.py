@@ -39,7 +39,7 @@ class BatchRunner:
 
     def runSingleSettingsOnMap(self, numAgents, aSeed):
         # Main command
-        command = "./build_debug/main"
+        command = "./build_release/main"
 
         # Batch experiment settings
         command += " --seed={}".format(aSeed)
@@ -136,7 +136,8 @@ def lacamExps(mapName, numScen, model, k, numSeeds):
 
 """
 Example run:
-python3 py/batch_runner.py --map scripts/map/random-32-32-10.map --numScen 1 --model models/random_1.pt --k 8 --numSeeds 5
+python3 py/batch_runner.py --map scripts/map/random-32-32-10.map --numScen 5 
+            --model models/random_1_unweight_w4.pt --k 4 --numSeeds 1
 
 """
 if __name__ == "__main__":

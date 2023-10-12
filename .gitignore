@@ -41,6 +41,7 @@
 Manifest.toml
 map
 build_debug/*
+build_release/*
 assets/*
 models/*
 CMakeFiles
