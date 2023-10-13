@@ -119,7 +119,9 @@ def plotInitialResults():
     BASEFOLDER = "/home/rishi/Desktop/CMU/Research/ml-mapf/lacam/lacam_original/logs"
     SPECIFIC_FOLDER = "{}/random-32-32-10".format(BASEFOLDER)
     baseDf = loadAndCleanDf("{}/random-32-32-10/nonn.csv".format(BASEFOLDER))
-    df = loadAndCleanDf("{}/random-32-32-10/random_1_unweight_w4.csv".format(BASEFOLDER))
+    # df = loadAndCleanDf("{}/random-32-32-10/random_1_unweight_w4.csv".format(BASEFOLDER))
+    # df = loadAndCleanDf("{}/random-32-32-10/random_1_w4_wait.csv".format(BASEFOLDER))
+    df = loadAndCleanDf("{}/random-32-32-10/random_1_sub_w4_wait.csv".format(BASEFOLDER))
     # df = pd.concat([df1, df2], ignore_index=True, sort=False)
 
     saveFolder = SPECIFIC_FOLDER
@@ -162,6 +164,7 @@ def plotInitialResults():
 
     df["rel_path_cost"] = df["soc"]/df["soc_baseline"]
     df["norm_soc"] = (df["soc"]-df["soc_baseline"])/df["soc_lb"]
+    # df["norm_soc"] = (df["sum_of_loss"]-df["sum_of_loss_baseline"])/df["sum_of_loss_lb"]
     plt.scatter(df["agents"], df["norm_soc"])
     # add line on y=0
     plt.plot([df["agents"].min(), df["agents"].max()], [0, 0], 'k-', lw=2)

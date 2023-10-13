@@ -17,15 +17,20 @@ mapsToNumAgents = {
     "ht_chantry": (50, 1000), # Verified
 }
 
-def getCSVNameFromSettings(folder, map_prefix, model):
+def getCSVNameFromSettings(folder, map_prefix, expSettings):
+    model = expSettings["model"]
+    force_wait = ""
+    if expSettings["force_goal_wait"]:
+        force_wait = "_wait"
+    
     if model is None:
-        return "{}/{}/nonn.csv".format(folder, map_prefix)
+        return "{}/{}{}/nonn.csv".format(folder, map_prefix, force_wait)
     model_prefix = model.split('/')[-1][:-3] # Remove .pt
-    return "{}/{}/{}.csv".format(folder, map_prefix, model_prefix)
+    return "{}/{}/{}{}.csv".format(folder, map_prefix, model_prefix, force_wait)
 
 class BatchRunner:
     """Class for running a single scen file"""
-    def __init__(self, outputcsv, mapName, scen, model, k, verbose, cutoffTime, neural) -> None:
+    def __init__(self, outputcsv, mapName, scen, model, k, verbose, cutoffTime, neural, force_goal_wait) -> None:
         self.cutoffTime = cutoffTime,
         self.map = mapName
         self.scen=scen
@@ -36,6 +41,7 @@ class BatchRunner:
         self.neural=neural
         # map_prefix = mapName.split('/')[-1][:-4]
         self.outputcsv = outputcsv
+        self.force_goal_wait = force_goal_wait
 
     def runSingleSettingsOnMap(self, numAgents, aSeed):
         # Main command
@@ -53,6 +59,7 @@ class BatchRunner:
         command += " --neural_flag={}".format(self.neural)
         command += " --time_limit_sec={}".format(self.cutoffTime)
         command += " --kval={}".format(self.k)
+        command += " --force_goal_wait={}".format(self.force_goal_wait)
         command += " --outputcsv={}".format(self.outputcsv)
         
         command += " --outputpaths=logs/paths.txt"
@@ -112,13 +119,14 @@ def lacamExps(mapName, numScen, model, k, numSeeds):
             verbose=1,
             cutoffTime=60,
             neural=[True, False][0],
+            force_goal_wait=True,
             # output='logs/nntest_' + map_prefix + ".csv"
         )
         if expSettings["neural"] is False:
             expSettings["model"] = None
 
         expSettings["outputcsv"] = getCSVNameFromSettings(
-            batchFolderName, map_prefix, expSettings["model"])
+            batchFolderName, map_prefix, expSettings)
         
         # create directory if it does not exist
         newFolderName = "/".join(expSettings["outputcsv"].split('/')[:-1])
