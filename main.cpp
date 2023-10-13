@@ -37,6 +37,9 @@ int main(int argc, char* argv[])
       .default_value(std::string("4")); //TODO <-- this could cause problems
   program.add_argument("-n", "--neural_flag")
       .default_value(std::string("true")); //TODO <-- this could cause problems
+  program.add_argument("--force_goal_wait")
+      .help("Whether to force agents to wait at their goal via PIBT").required();
+      // .default_value(std::string("false"));
 
   try {
     program.parse_known_args(argc, argv);
@@ -64,6 +67,8 @@ int main(int argc, char* argv[])
                                         : Instance(map_name, &MT, N);
   bool neural_flag = program.get<std::string>("neural_flag") == "true" ||
                       program.get<std::string>("neural_flag") == "True";
+  bool force_goal_wait = program.get<std::string>("force_goal_wait") == "true" ||
+                      program.get<std::string>("force_goal_wait") == "True";
   if (!ins.is_valid(1)) return 1;
 
   //setup model
@@ -84,7 +89,7 @@ int main(int argc, char* argv[])
   int cache_hit, loop_cnt;
   
   const auto deadline = Deadline(time_limit_sec * 1000);
-  AllSolution all_solution = solveAll(ins, verbose - 1, &deadline, &MT, &module, k, neural_flag);
+  AllSolution all_solution = solveAll(ins, verbose - 1, &deadline, &MT, &module, k, neural_flag, force_goal_wait);
   const auto comp_time_ms = deadline.elapsed_ms();
   std::tie(solution, cache_hit, loop_cnt) = all_solution;
   // failure

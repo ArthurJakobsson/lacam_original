@@ -62,7 +62,8 @@ Node::~Node()
 
 Planner::Planner(const Instance* _ins, const Deadline* _deadline,
                  std::mt19937* _MT, torch::jit::script::Module* _module,
-                 int _k, int _verbose, bool _neural_flag)
+                 int _k, int _verbose, bool _neural_flag,
+                 bool _force_goal_wait)
     : ins(_ins),
       deadline(_deadline),
       MT(_MT),
@@ -78,7 +79,8 @@ Planner::Planner(const Instance* _ins, const Deadline* _deadline,
       occupied_now(Agents(V_size, nullptr)),
       occupied_next(Agents(V_size, nullptr)),
       cache_hit(0),
-      neural_flag(_neural_flag)
+      neural_flag(_neural_flag),
+      force_goal_wait(_force_goal_wait)
 {
 }
 
@@ -283,6 +285,7 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     // std::cout << "loc_bd\n" << loc_bd << std::endl;
     at::Tensor NN_result = inputs_to_torch(loc_grid, loc_bd, help_bd, helper_loc);
     // std::cout << NN_result << std::endl;
+    NN_result = F::softmax(NN_result, F::SoftmaxFuncOptions(1)); // Apply softmax across dim 1
     std::vector<double> v_NN_res(NN_result.data_ptr<float>(), NN_result.data_ptr<float>() + NN_result.numel());
     //   if label[0] == 0 and label[1] == 0: index = 0 // waiting
     //    elif label[0] == 0 and label[1] == 1: index = 1 // increase col
@@ -317,17 +320,9 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
       }
     }
 
-    // agent location add for "no action"
-    // int zero_ind = find(ordering.begin(), ordering.end(), 0) - ordering.begin();
-    // predictions[a_id][U[width * curr_row + curr_col]->id] = 5-zero_ind;
-    // int delta_row[4] = {0, 1, -1, 0}; //up down left right
-    // int delta_col[4] = {0, 0, -1, 1}; //up down left right
-    // int nn_index[4] = {3,2,4,1};//{1, 4, 3, 2};
+    //// No randomizing actions, sort by probabilities directly
     int delta_row[5] = {0, 0, 1, -1,  0}; // wait, +col, +row, -row, -col
     int delta_col[5] = {0, 1, 0,  0, -1};
-    // int nn_index[5] =  {0, 2, 1,  4,  3};
-    // int nn_index[5] =  {0, 1, 3,  2,  4};
-    // int nn_index[5] =  {0, 2, 1,  4,  3}; // If row col is transposed to training
     int nn_index[5] = {0, 1, 2,  3,  4}; // If row col is identical to training
     for(int j = 0; j<5; j++)
     {
@@ -341,6 +336,10 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
         // predictions[a_id][location->id] = 5-index;
         predictions[a_id][location->id] = v_NN_res[nn_index[j]];
       }
+    }
+    //// Force agent to wait if currently at goal location
+    if (force_goal_wait && D.get(a_id, A[a_id]->v_now) == 0) {
+      predictions[a_id][A[a_id]->v_now->id] = 1; // Force to wait
     }
 
 
@@ -613,19 +612,21 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
 }
 
 Solution solve(const Instance& ins, const int verbose, const Deadline* deadline,
-               std::mt19937* MT, torch::jit::script::Module* module, int k, bool neural_flag)
+               std::mt19937* MT, torch::jit::script::Module* module, int k, bool neural_flag,
+               bool force_goal_wait)
 {
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tpre-processing");
-  auto planner = Planner(&ins, deadline, MT, module, k, verbose, neural_flag);
+  auto planner = Planner(&ins, deadline, MT, module, k, verbose, neural_flag, force_goal_wait);
   AllSolution all_solution = planner.solve();
   return std::get<0>(all_solution);
 }
 
 
 AllSolution solveAll(const Instance& ins, const int verbose, const Deadline* deadline,
-               std::mt19937* MT, torch::jit::script::Module* module, int k, bool neural_flag)
+               std::mt19937* MT, torch::jit::script::Module* module, int k, bool neural_flag,
+               bool force_goal_wait)
 {
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tpre-processing");
-  auto planner = Planner(&ins, deadline, MT, module, k, verbose, neural_flag);
+  auto planner = Planner(&ins, deadline, MT, module, k, verbose, neural_flag, force_goal_wait);
   return planner.solve();
 }

@@ -72,10 +72,12 @@ struct Planner {
   torch::Tensor grid;
   std::vector<torch::Tensor> bd;
   int cache_hit;
-  bool neural_flag;
+  bool neural_flag; // Whether to use NN or not
+  bool force_goal_wait; // Whether to force agents to wait at their goal via PIBT
 
   Planner(const Instance* _ins, const Deadline* _deadline, std::mt19937* _MT,
-          torch::jit::script::Module* _module, int _k = 4, int _verbose = 0, bool _neural_flag = true);
+          torch::jit::script::Module* _module, int _k = 4, int _verbose = 0, bool _neural_flag = true,
+          bool _force_goal_wait = false);
   torch::Tensor slice_and_fix_pad(torch::Tensor curr_bd, int row, int col, int subtract_row, int subtract_col);
   std::vector<std::map<int, double>> createNbyFive (const Vertices &C);
   torch::Tensor get_map();
@@ -92,8 +94,10 @@ struct Planner {
 // main function
 Solution solve(const Instance& ins, const int verbose = 0,
                const Deadline* deadline = nullptr, std::mt19937* MT = nullptr,
-               torch::jit::script::Module* _module = nullptr, int k = 4, bool _neural_flag = true);
+               torch::jit::script::Module* _module = nullptr, int k = 4, bool _neural_flag = true,
+               bool _force_goal_wait = false);
 
 AllSolution solveAll(const Instance& ins, const int verbose = 0,
                const Deadline* deadline = nullptr, std::mt19937* MT = nullptr,
-               torch::jit::script::Module* _module = nullptr, int k = 4, bool _neural_flag = true);
+               torch::jit::script::Module* _module = nullptr, int k = 4, bool _neural_flag = true,
+               bool _force_goal_wait = false);
