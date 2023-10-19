@@ -318,7 +318,7 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     // agent location add for "no action"
     int zero_ind = find(ordering.begin(), ordering.end(), 0) - ordering.begin();
     predictions[a_id][U[width * curr_row + curr_col]->id] = 5-zero_ind;
-    int delta_row[4] = {0, 1, -1, 0}; //up down left right
+    int delta_row[4] = {1, -1, 0, 0}; //up down left right
     int delta_col[4] = {0, 0, -1, 1}; //up down left right
     int nn_index[4] = {3,2,4,1};//{1, 4, 3, 2};
     for(int j = 0; j<4; j++)
