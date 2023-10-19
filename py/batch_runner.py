@@ -17,23 +17,25 @@ mapsToNumAgents = {
     "ht_chantry": (50, 1000), # Verified
 }
 
-def getCSVNameFromSettings(folder, map_prefix, expSettings):
+def getCSVNameFromSettings(folder, map_prefix, expSettings, extraSuffix=""):
     model = expSettings["model"]
     force_wait = ""
     if expSettings["force_goal_wait"]:
         force_wait = "_wait"
     
     if model is None:
-        return "{}/{}{}/nonn.csv".format(folder, map_prefix, force_wait)
+        return "{}/{}{}/nonn{}.csv".format(folder, map_prefix, force_wait, extraSuffix)
     model_prefix = model.split('/')[-1][:-3] # Remove .pt
-    return "{}/{}/{}{}.csv".format(folder, map_prefix, model_prefix, force_wait)
+    return "{}/{}/{}{}{}.csv".format(folder, map_prefix, model_prefix, force_wait, extraSuffix)
 
 class BatchRunner:
     """Class for running a single scen file"""
-    def __init__(self, outputcsv, mapName, scen, model, k, verbose, cutoffTime, neural, force_goal_wait) -> None:
+    def __init__(self, outputcsv, mapName, model, k, verbose, cutoffTime, neural, force_goal_wait) -> None:
         self.cutoffTime = cutoffTime,
         self.map = mapName
-        self.scen=scen
+        # scen_prefix should be MapName-random- or MapName-even-, we will attach the scen number and .scen
+        # assert(scen_prefix.endswith('-') and not scen_prefix.endswith('.scen'))
+        # self.scen_prefix = scen_prefix
         self.model=model
         self.k=k
         self.verbose=verbose
@@ -43,15 +45,15 @@ class BatchRunner:
         self.outputcsv = outputcsv
         self.force_goal_wait = force_goal_wait
 
-    def runSingleSettingsOnMap(self, numAgents, aSeed):
+    def runSingleSettingsOnMap(self, numAgents, aSeed, scen):
         # Main command
         command = "./build_release/main"
 
         # Batch experiment settings
         command += " --seed={}".format(aSeed)
+        command += " --scen={}".format(scen)
         command += " --num={}".format(numAgents)
         command += " --map={}".format(self.map)
-        command += " --scen={}".format(self.scen)
 
         # Exp Settings
         command += " --verbose={}".format(self.verbose)
@@ -69,32 +71,39 @@ class BatchRunner:
         # pdb.set_trace()
         subprocess.run(command.split(" "), check=True)
 
-    def detectExistingStatus(self, numAgents):
+    def detectExistingStatus(self, numAgents, scens):
         if exists(self.outputcsv):
             df = pd.read_csv(self.outputcsv)
-            df = df[(df["agents"] == numAgents) & (df["scen_name"] == self.scen)]
-            numFailed = len(df[(df["solved"] == '0')])
+            df = df[(df["agents"] == numAgents) & df["scen_name"].isin(scens)]
+            # pdb.set_trace()
+            numFailed = (df["solved"] == 0).sum()
+            numSuccess = (df["solved"] == 1).sum()
+            assert(numFailed + numSuccess == len(df))
             return len(df), numFailed
         return 0, 0
 
-    def runBatchExps(self, agentNumbers, seeds):
+    def runBatchExps(self, agentNumbers, seeds, scens):
+        numExpPerSetting = len(seeds) * len(scens)
         for aNum in agentNumbers:
-            numRan, numFailed = self.detectExistingStatus(aNum)
-            if numRan > 0 and numFailed > len(seeds)/2:  # Check if existing run all failed
+            numRan, numFailed = self.detectExistingStatus(aNum, scens)
+            if numRan > 0 and numFailed > numExpPerSetting/2:  # Check if existing run all failed
                 print(
                     "Terminating early because all failed with {} number of agents".format(aNum))
                 break
-            elif numRan >= len(seeds):  # Check if ran existing run
+            elif numRan >= numExpPerSetting:  # Check if ran existing run
                 print("Skipping {} completely as already run!".format(aNum))
                 continue
             else:
-                for aSeed in seeds:
-                    self.runSingleSettingsOnMap(aNum, aSeed)
+                ### Run across scens and seeds
+                for aScen in scens:
+                    for aSeed in seeds:
+                        self.runSingleSettingsOnMap(aNum, aSeed, aScen)
+
                 # Check if new run failed
-                numRan, numFailed = self.detectExistingStatus(aNum)
+                numRan, numFailed = self.detectExistingStatus(aNum, scens)
                 if numRan == 0:
                     raise RuntimeError("Cannot detect any runs although should have ran!")
-                if numRan - numFailed <= len(seeds) / 2:
+                if numRan - numFailed <= numExpPerSetting / 2:
                     print(
                         "Terminating early because all failed with {} number of agents".format(aNum))
                     break
@@ -109,38 +118,40 @@ def lacamExps(mapName, numScen, model, k, numSeeds):
     map_prefix = mapName.split('/')[-1][:-4]
 
     scen_prefix = "scripts/scen/scen-random/" + map_prefix + "-random-"
-    for s in range(1, numScen + 1):
-        myScen = scen_prefix + str(s) + ".scen"
-        expSettings = dict(
-            mapName=mapName,
-            scen=myScen,
-            model=model,
-            k=k,
-            verbose=1,
-            cutoffTime=60,
-            neural=[True, False][0],
-            force_goal_wait=True,
-            # output='logs/nntest_' + map_prefix + ".csv"
-        )
-        if expSettings["neural"] is False:
-            expSettings["model"] = None
+    allScens = [scen_prefix + str(s) + ".scen" for s in range(1, numScen + 1)]
 
-        expSettings["outputcsv"] = getCSVNameFromSettings(
-            batchFolderName, map_prefix, expSettings)
-        
-        # create directory if it does not exist
-        newFolderName = "/".join(expSettings["outputcsv"].split('/')[:-1])
-        if not os.path.isdir(newFolderName):
-            os.makedirs(newFolderName)
+    # for s in range(1, numScen + 1):
+        # myScen = scen_prefix + str(s) + ".scen"
+    expSettings = dict(
+        mapName=mapName,
+        # scen=myScen,
+        model=model,
+        k=k,
+        verbose=1,
+        cutoffTime=1,
+        neural=[True, False][0],
+        force_goal_wait=True,
+        # output='logs/nntest_' + map_prefix + ".csv"
+    )
+    if expSettings["neural"] is False:
+        expSettings["model"] = None
 
-        # agentRange = [1] + list(range(10, 100+1, 10))
-        agentRange = list(range(50, mapsToNumAgents[map_prefix][1]+1, 50))
+    expSettings["outputcsv"] = getCSVNameFromSettings(
+        batchFolderName, map_prefix, expSettings, "blah")
+    
+    # create directory if it does not exist
+    newFolderName = "/".join(expSettings["outputcsv"].split('/')[:-1])
+    if not os.path.isdir(newFolderName):
+        os.makedirs(newFolderName)
 
-        seeds = list(range(1, numSeeds + 1))
+    # agentRange = [1] + list(range(10, 100+1, 10))
+    agentRange = list(range(50, mapsToNumAgents[map_prefix][1]+1, 50))
 
-        # For running across all
-        myBR = BatchRunner(**expSettings)
-        myBR.runBatchExps(agentRange, seeds)
+    seeds = list(range(1, numSeeds + 1))
+
+    # For running across all
+    myBR = BatchRunner(**expSettings)
+    myBR.runBatchExps(agentRange, seeds, allScens)
 
 """
 Example run:
