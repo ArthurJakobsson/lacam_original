@@ -63,7 +63,7 @@ Node::~Node()
 Planner::Planner(const Instance* _ins, const Deadline* _deadline,
                  std::mt19937* _MT, torch::jit::script::Module* _module,
                  int _k, int _verbose, bool _neural_flag,
-                 bool _force_goal_wait)
+                 bool _force_goal_wait, bool _neural_random, bool _prioritized_helpers)
     : ins(_ins),
       deadline(_deadline),
       MT(_MT),
@@ -80,7 +80,9 @@ Planner::Planner(const Instance* _ins, const Deadline* _deadline,
       occupied_next(Agents(V_size, nullptr)),
       cache_hit(0),
       neural_flag(_neural_flag),
-      force_goal_wait(_force_goal_wait)
+      force_goal_wait(_force_goal_wait),
+      neural_random(_neural_random),
+      prioritized_helpers(_prioritized_helpers)
 {
 }
 
@@ -177,7 +179,7 @@ torch::Tensor Planner::get_bd(int a_id)
     }
   }
   torch::Tensor t_bd = getTensorFrom2DVecs(bd);
-  // pad with 1's in every direction
+  // pad with 0's in every direction
   t_bd = F::pad(t_bd, F::PadFuncOptions({K, K, K, K}).value(0));
   return t_bd;
 }
@@ -204,7 +206,6 @@ std::vector<double> help_loc_helper(std::vector<std::pair<int, std::pair<int,int
                         int nth_help, int curr_size, int curr_row, int curr_col)
 {
   std::vector<double> point = {0, 0};
-  // if (false)
   if(nth_help < curr_size)
   {
     point[0] = (dist[nth_help].second).first - curr_row;
@@ -228,13 +229,13 @@ std::vector<float> prefix_sum_help(std::vector<double> nn_values)
   return nn_prefix_sum;
 }
 
-std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
+std::vector<std::map<int, double>> Planner::createNbyFive(const Node* S)
 {
   std::vector<std::map<int, double>> predictions;
   predictions.resize(N);
 
-  for(int a_id = 0; a_id<N; a_id++)
-  {
+  for(int a_outer_index = 0; a_outer_index < N; a_outer_index++) {
+    int a_id = S->order[a_outer_index];
     int width = ins->G.width;
     int height = ins->G.height;
     int curr_index = A[a_id]->v_now->index;
@@ -246,15 +247,22 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     // std::cout << loc_bd << std::endl;
     // get 4 nearest agents
     std::vector<std::pair<int, std::pair<int,int>>> locs; //hold agt id, loc
-    for (int j = 0; j<N; j++)
-    {
-      int help_index = A[j]->v_now->index;
+
+    int help_agent_max_id = N;
+    if (prioritized_helpers) {
+      help_agent_max_id = a_outer_index+1; // Need to include itself
+    }
+    for (int j = 0; j < help_agent_max_id; j++) {
+      // Agents later in the order should avoid earlier ones 
+      //   because those agents have better priority in PIBT
+      int inner_agent_id = S->order[j];
+      int help_index = A[inner_agent_id]->v_now->index;
       int help_col = help_index % width;
       int help_row = (help_index - help_col) / width;
       // std::cout << curr_x << curr_y << help_x << help_y << std::endl;
       if(abs(curr_col-help_col)<= K && abs(curr_row-help_row)<= K)
       {
-        locs.push_back({j, {help_row, help_col}});
+        locs.push_back({inner_agent_id, {help_row, help_col}});
       }
     }
     std::sort(locs.begin(), locs.end(),
@@ -282,19 +290,13 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
                         (locs[i].second).first, (locs[i].second).second);
       }
     }
-    // std::cout << "loc_bd\n" << loc_bd << std::endl;
     at::Tensor NN_result = inputs_to_torch(loc_grid, loc_bd, help_bd, helper_loc);
     // std::cout << NN_result << std::endl;
     NN_result = F::softmax(NN_result, F::SoftmaxFuncOptions(1)); // Apply softmax across dim 1
     std::vector<double> v_NN_res(NN_result.data_ptr<float>(), NN_result.data_ptr<float>() + NN_result.numel());
-    //   if label[0] == 0 and label[1] == 0: index = 0 // waiting
-    //    elif label[0] == 0 and label[1] == 1: index = 1 // increase col
-        // elif label[0] == 1 and label[1] == 0: index = 2 // increase row
-        // elif label[0] == -1 and label[1] == 0: index = 3 // decrease row
-        // else: index = 4 // increase col
     Vertices U = ins->G.U;
 
-    // semi-randomize the ordering of the actions
+    //// semi-randomize the ordering of the actions
     std::vector<double> copy(5);
     std::vector<int> indices(5);
     std::vector<int> ordering(5);
@@ -306,12 +308,10 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
     for (int i = 0; i<5; i++)
     {
       std::vector<float> prefix = prefix_sum_help(copy);
-      float sum = copy[copy.size()-1];
+      float sum = prefix.back();
       float rand= get_random_float(MT, 0, sum);
-      for(int j = 0; j<(int)copy.size();j++)
-      {
-        if (rand<=prefix[0])
-        {
+      for(int j = 0; j < copy.size(); j++) {
+        if (rand <= prefix[j]) {
           ordering[i] = indices[j];
           copy.erase(copy.begin()+j);
           indices.erase(indices.begin()+j);
@@ -320,26 +320,31 @@ std::vector<std::map<int, double>> Planner::createNbyFive (const Vertices &C)
       }
     }
 
-    //// No randomizing actions, sort by probabilities directly
+    ///// Populate predictions using nn results or randomize orderings
     int delta_row[5] = {0, 0, 1, -1,  0}; // wait, +col, +row, -row, -col
     int delta_col[5] = {0, 1, 0,  0, -1};
     int nn_index[5] = {0, 1, 2,  3,  4}; // If row col is identical to training
-    for(int j = 0; j<5; j++)
-    {
+    for(int j = 0; j<5; j++) {
       int this_row = curr_row+delta_row[j];
       int this_col = curr_col+delta_col[j];
-      if(this_row<0 || this_col<0 || this_col>=width || this_row >= height) continue;
+      if (this_row<0 || this_col<0 || this_col>=width || this_row >= height) 
+        continue;
       auto location = U[width * (this_row) + (this_col)];
-      if(location!=nullptr)
-      {
-        // int index = find(ordering.begin(), ordering.end(), nn_index[j]) - ordering.begin();
-        // predictions[a_id][location->id] = 5-index;
-        predictions[a_id][location->id] = v_NN_res[nn_index[j]];
+      if (location!=nullptr) {
+        if (neural_random) {
+          // Use randomized actions
+          int index = find(ordering.begin(), ordering.end(), nn_index[j]) - ordering.begin();
+          predictions[a_id][location->id] = 5-index;
+        }
+        else {
+          // No randomizing actions, sort by probabilities directly
+          predictions[a_id][location->id] = v_NN_res[nn_index[j]];
+        }
       }
     }
     //// Force agent to wait if currently at goal location
     if (force_goal_wait && D.get(a_id, A[a_id]->v_now) == 0) {
-      predictions[a_id][A[a_id]->v_now->id] = 1; // Force to wait
+      predictions[a_id][A[a_id]->v_now->id] = 100; // Force to wait by assigning large value
     }
 
 
@@ -515,7 +520,7 @@ bool Planner::get_new_config(Node* S, Constraint* M) //Node contains the N by 5
     if(S->predictions.empty())
     {
       //cache old predictions
-      S->predictions = createNbyFive(S->C);
+      S->predictions = createNbyFive(S);
     } else {
       cache_hit+=1;
     }
@@ -613,10 +618,10 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
 
 Solution solve(const Instance& ins, const int verbose, const Deadline* deadline,
                std::mt19937* MT, torch::jit::script::Module* module, int k, bool neural_flag,
-               bool force_goal_wait)
+               bool force_goal_wait, bool neural_random, bool prioritized_helpers)
 {
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tpre-processing");
-  auto planner = Planner(&ins, deadline, MT, module, k, verbose, neural_flag, force_goal_wait);
+  auto planner = Planner(&ins, deadline, MT, module, k, verbose, neural_flag, force_goal_wait, neural_random, prioritized_helpers);
   AllSolution all_solution = planner.solve();
   return std::get<0>(all_solution);
 }
@@ -624,9 +629,9 @@ Solution solve(const Instance& ins, const int verbose, const Deadline* deadline,
 
 AllSolution solveAll(const Instance& ins, const int verbose, const Deadline* deadline,
                std::mt19937* MT, torch::jit::script::Module* module, int k, bool neural_flag,
-               bool force_goal_wait)
+               bool force_goal_wait, bool neural_random, bool prioritized_helpers)
 {
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tpre-processing");
-  auto planner = Planner(&ins, deadline, MT, module, k, verbose, neural_flag, force_goal_wait);
+  auto planner = Planner(&ins, deadline, MT, module, k, verbose, neural_flag, force_goal_wait, neural_random, prioritized_helpers);
   return planner.solve();
 }

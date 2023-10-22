@@ -65,6 +65,8 @@ class BatchRunner:
         command += " --outputcsv={}".format(self.outputcsv)
         
         command += " --outputpaths=logs/paths.txt"
+        command += " --neural_random=true"
+        command += " --prioritized_helpers=false"
 
         # True if want failure error
         # print(command)
@@ -128,16 +130,16 @@ def lacamExps(mapName, numScen, model, k, numSeeds):
         model=model,
         k=k,
         verbose=1,
-        cutoffTime=1,
+        cutoffTime=60,
         neural=[True, False][0],
-        force_goal_wait=True,
+        force_goal_wait=[True, False][1],
         # output='logs/nntest_' + map_prefix + ".csv"
     )
     if expSettings["neural"] is False:
         expSettings["model"] = None
 
     expSettings["outputcsv"] = getCSVNameFromSettings(
-        batchFolderName, map_prefix, expSettings, "blah")
+        batchFolderName, map_prefix, expSettings, "full2_random_priority")
     
     # create directory if it does not exist
     newFolderName = "/".join(expSettings["outputcsv"].split('/')[:-1])

@@ -40,6 +40,10 @@ int main(int argc, char* argv[])
   program.add_argument("--force_goal_wait")
       .help("Whether to force agents to wait at their goal via PIBT").required();
       // .default_value(std::string("false"));
+  program.add_argument("--neural_random")
+      .help("Whether to randomize outputs of neural instead of picking arg max").required();
+  program.add_argument("--prioritized_helpers")
+      .help("Whether to have earlier agents ignore later ones by not including them in helper bds and locs").required();
 
   try {
     program.parse_known_args(argc, argv);
@@ -69,6 +73,10 @@ int main(int argc, char* argv[])
                       program.get<std::string>("neural_flag") == "True";
   bool force_goal_wait = program.get<std::string>("force_goal_wait") == "true" ||
                       program.get<std::string>("force_goal_wait") == "True";
+  bool neural_random = program.get<std::string>("neural_random") == "true" ||
+                      program.get<std::string>("neural_random") == "True";
+  bool prioritized_helpers = program.get<std::string>("prioritized_helpers") == "true" ||
+                      program.get<std::string>("prioritized_helpers") == "True";
   if (!ins.is_valid(1)) return 1;
 
   //setup model
@@ -89,7 +97,7 @@ int main(int argc, char* argv[])
   int cache_hit, loop_cnt;
   
   const auto deadline = Deadline(time_limit_sec * 1000);
-  AllSolution all_solution = solveAll(ins, verbose - 1, &deadline, &MT, &module, k, neural_flag, force_goal_wait);
+  AllSolution all_solution = solveAll(ins, verbose - 1, &deadline, &MT, &module, k, neural_flag, force_goal_wait, prioritized_helpers);
   const auto comp_time_ms = deadline.elapsed_ms();
   std::tie(solution, cache_hit, loop_cnt) = all_solution;
   // failure

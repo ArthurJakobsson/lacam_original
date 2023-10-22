@@ -118,8 +118,8 @@ def addBaseline(df, baseDf, joinColumns):
 def plotInitialResults():
     BASEFOLDER = "/home/rishi/Desktop/CMU/Research/ml-mapf/lacam/lacam_original/logs"
     SPECIFIC_FOLDER = "{}/random-32-32-10".format(BASEFOLDER)
-    baseDf = loadAndCleanDf("{}/random-32-32-10/nonn.csv".format(BASEFOLDER))
-    df = loadAndCleanDf("{}/random-32-32-10/random_1_unweight_w4.csv".format(BASEFOLDER))
+    baseDf = loadAndCleanDf("{}/random-32-32-10/nonnfull.csv".format(BASEFOLDER))
+    df = loadAndCleanDf("{}/random-32-32-10/random_1_unweight_w4full_random_priority.csv".format(BASEFOLDER))
     # df = loadAndCleanDf("{}/random-32-32-10/random_1_w4_wait.csv".format(BASEFOLDER))
     # df = loadAndCleanDf("{}/random-32-32-10/random_1_sub_w4_wait.csv".format(BASEFOLDER))
     # df = pd.concat([df1, df2], ignore_index=True, sort=False)
@@ -135,7 +135,7 @@ def plotInitialResults():
     joinColumn = ["name", "map_file", "agents"] # Joining across scen_name
     resultCols = [x for x in df.columns if x not in joinColumn]
     def aggStats(data):
-        # pdb.set_trace()
+        pdb.set_trace()
         d = {}
         d["success_rate"] = np.mean(data["success"])
         # if d["success_rate"] < 1:
@@ -169,7 +169,7 @@ def plotInitialResults():
     # add line on y=0
     plt.plot([df["agents"].min(), df["agents"].max()], [0, 0], 'k-', lw=2)
     plt.ylabel("(Our SoC - Baseline SoC) / LB")
-    plt.savefig("{}/path_cost.png".format(saveFolder), bbox_inches='tight', dpi=600)
+    plt.savefig("{}/path_cost_priority_random.png".format(saveFolder), bbox_inches='tight', dpi=600)
     return
 
     # df = df[(df["success"] >= 0.5) & (df["success_baseline"] >= 0.5)]
