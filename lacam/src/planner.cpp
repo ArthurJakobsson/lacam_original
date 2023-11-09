@@ -62,8 +62,8 @@ Node::~Node()
 
 Planner::Planner(const Instance* _ins, const Deadline* _deadline,
                  std::mt19937* _MT, torch::jit::script::Module* _module,
-                 int _k, int _verbose, bool _neural_flag,
-                 bool _force_goal_wait, bool _neural_random, bool _prioritized_helpers)
+                 int _k, int _verbose, bool _neural_flag, bool _force_goal_wait,
+                 bool relative_last_action, bool _neural_random, bool _prioritized_helpers)
     : ins(_ins),
       deadline(_deadline),
       MT(_MT),
@@ -81,6 +81,7 @@ Planner::Planner(const Instance* _ins, const Deadline* _deadline,
       cache_hit(0),
       neural_flag(_neural_flag),
       force_goal_wait(_force_goal_wait),
+      relative_last_action(relative_last_action),
       neural_random(_neural_random),
       prioritized_helpers(_prioritized_helpers)
 {
@@ -290,6 +291,20 @@ std::vector<std::map<int, double>> Planner::createNbyFive(const Node* S)
                         (locs[i].second).first, (locs[i].second).second);
       }
     }
+    
+    //// Add prev locations if needed
+    if (relative_last_action) {
+      std::vector<double> prev_relative_action = {0, 0};
+      if (S->parent != nullptr) {
+        int prev_index = S->parent->C[a_id]->index;
+        int prev_col = prev_index % width;
+        int prev_row = (prev_index - prev_col) / width;
+        prev_relative_action[0] = prev_row - curr_row;
+        prev_relative_action[1] = prev_col - curr_col;
+      }
+      helper_loc.push_back(prev_relative_action); // Append to "flat" inputs
+    }
+
     at::Tensor NN_result = inputs_to_torch(loc_grid, loc_bd, help_bd, helper_loc);
     // std::cout << NN_result << std::endl;
     NN_result = F::softmax(NN_result, F::SoftmaxFuncOptions(1)); // Apply softmax across dim 1
@@ -618,10 +633,12 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
 
 Solution solve(const Instance& ins, const int verbose, const Deadline* deadline,
                std::mt19937* MT, torch::jit::script::Module* module, int k, bool neural_flag,
-               bool force_goal_wait, bool neural_random, bool prioritized_helpers)
+               bool force_goal_wait, bool relative_last_action,
+               bool neural_random, bool prioritized_helpers)
 {
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tpre-processing");
-  auto planner = Planner(&ins, deadline, MT, module, k, verbose, neural_flag, force_goal_wait, neural_random, prioritized_helpers);
+  auto planner = Planner(&ins, deadline, MT, module, k, verbose, neural_flag, force_goal_wait, 
+                         relative_last_action, neural_random, prioritized_helpers);
   AllSolution all_solution = planner.solve();
   return std::get<0>(all_solution);
 }
@@ -629,9 +646,11 @@ Solution solve(const Instance& ins, const int verbose, const Deadline* deadline,
 
 AllSolution solveAll(const Instance& ins, const int verbose, const Deadline* deadline,
                std::mt19937* MT, torch::jit::script::Module* module, int k, bool neural_flag,
-               bool force_goal_wait, bool neural_random, bool prioritized_helpers)
+               bool force_goal_wait, bool relative_last_action,
+               bool neural_random, bool prioritized_helpers)
 {
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tpre-processing");
-  auto planner = Planner(&ins, deadline, MT, module, k, verbose, neural_flag, force_goal_wait, neural_random, prioritized_helpers);
+  auto planner = Planner(&ins, deadline, MT, module, k, verbose, neural_flag, force_goal_wait, 
+                         relative_last_action, neural_random, prioritized_helpers);
   return planner.solve();
 }
