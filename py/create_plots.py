@@ -114,6 +114,88 @@ def addBaseline(df, baseDf, joinColumns):
     # return df
     return tmpDf
 
+def loadAndCleanDf2(filePath1, baseFilePath):
+    def createName(row, filePath):
+        if "nonn" in filePath:
+            return "baseline"
+        else:
+            return "nn"
+    df = pd.read_csv(filePath1)
+    df['name'] = df.astype('O').apply(lambda row: createName(row, filePath1), axis=1) # Name settings
+    dfBase = pd.read_csv(baseFilePath)
+    dfBase['name'] = dfBase.astype('O').apply(lambda row: createName(row, baseFilePath), axis=1) # Name settings
+    # pdb.set_trace()
+
+    #### Aggregate over seeds first
+    joinColumn = ["name", "agents", "map_file", "scen_name"]
+    resultCols = [x for x in df.columns if x not in joinColumn]
+    def aggStats(data):
+        d = {}
+        d["success"] = np.mean(data["solved"])
+        data = data[data["soc"] > 0]  # Only keep successes
+        for aKey in resultCols:
+            if data[aKey].dtype == str:
+                continue
+            d[aKey] = data[aKey].median()
+        d["stddev"] = data["soc"].std()
+        return pd.Series(d)
+    df = df.groupby(joinColumn, as_index=False, sort=False).apply(aggStats)
+    dfBase = dfBase.groupby(joinColumn, as_index=False, sort=False).apply(aggStats)
+
+    # pdb.set_trace()
+    #### Merge with baseline
+    joinColumn = ["scen_name", "map_file", "agents"] # Joining, NOT AGGREGATING, across scen_name
+    resultCols = [x for x in df.columns if x not in joinColumn]
+
+    def mergeDfs(joinColumns, leftDfSuffix, leftDf, rightDfSuffix, rightDf):
+        df = pd.merge(leftDf, rightDf, how="inner", left_on=joinColumns, right_on=joinColumns, 
+                                                    suffixes=[leftDfSuffix, rightDfSuffix])
+        return df
+    dfMerged = mergeDfs(joinColumn, "", df, "_baseline", dfBase)
+    # dfMerged = dfMerged[dfMerged["success"] > 0.5]
+    # pdb.set_trace()
+    return dfMerged
+
+def plotWithStddev():
+    BASEFOLDER = "/home/rishi/Desktop/CMU/Research/ml-mapf/lacam/lacam_original/logs"
+    SPECIFIC_FOLDER = "{}/random-32-32-10".format(BASEFOLDER)
+    compareModel = ["random_1_unweight_w4full_random.csv",
+                    "random_1_unweight_w4full_test_1seeds.csv"][0]
+    baseModel = ["nonnfull.csv", "nonn_20seeds.csv", "nonnfull_test_20seeds.csv"][1]
+    df = loadAndCleanDf2("{}/{}".format(SPECIFIC_FOLDER, compareModel),
+                    "{}/{}".format(SPECIFIC_FOLDER, baseModel))
+
+    saveFolder = SPECIFIC_FOLDER
+
+    ### Remove failures across all agents
+    numAgentsList = df["agents"].unique()
+    for numAgents in numAgentsList:
+        successProportion = df[df["agents"] == numAgents]["success"].mean()
+        # pdb.set_trace()
+        if (successProportion < 0.5): ### If aggregate fails too much, remove from df
+            print("Removed {} as fails more than 50%".format(numAgents))
+            df = df[df["agents"] != numAgents]
+    
+    print("Remaining agents: {}".format(df["agents"].unique()))
+    ### Remove specific instances that fail
+    df = df[df["success"] == 1]
+
+    df["soc_dif"] = (df["soc"] - df["soc_baseline"]) / df["soc_lb"]
+    # pltData = df["soc_dif"]
+    # plt.boxplot(pltData.values, showfliers=False)
+    # ax = plt.gca()
+    # ax.set_xticklabels(pltData.keys())
+    # df["tmp"] = df["stddev_baseline"] / df["soc_lb"]
+    # df.boxplot(column="tmp", by="agents", grid=False, showfliers=False)
+    df.boxplot(column="soc_dif", by="agents", grid=False, showfliers=False)
+    plt.axhline(c='k', linestyle='--', alpha=0.5)
+    plt.ylabel("(Our SoC - Baseline SoC) / LB")
+    plt.savefig("testFig2".format(saveFolder), bbox_inches='tight', dpi=600)
+
+    for numAgents in df["agents"].unique():
+        tmpDf = df[df["agents"] == numAgents]
+        pltData = (tmpDf["soc"].median() - tmpDf["soc_baseline"].median()) / tmpDf["soc_lb"].median()
+        print("Agents: {}, median: {}".format(numAgents, pltData))
 
 def plotInitialResults():
     BASEFOLDER = "/home/rishi/Desktop/CMU/Research/ml-mapf/lacam/lacam_original/logs"
@@ -123,6 +205,8 @@ def plotInitialResults():
     # df = loadAndCleanDf("{}/random-32-32-10/random_1_w4_wait.csv".format(BASEFOLDER))
     # df = loadAndCleanDf("{}/random-32-32-10/random_1_sub_w4_wait.csv".format(BASEFOLDER))
     # df = pd.concat([df1, df2], ignore_index=True, sort=False)
+    loadAndCleanDf2("{}/random-32-32-10/random_1_unweight_w4full_random_priority.csv".format(BASEFOLDER),
+                    "{}/random-32-32-10/nonnfull.csv".format(BASEFOLDER))
 
     saveFolder = SPECIFIC_FOLDER
 
@@ -251,4 +335,5 @@ def plotInitialResults():
     # plotCustomMulti(createSubPlot, allPlotData, targetShape, "{}/small_all{}Log5.png".format(saveFolder, yKey))
 
 if __name__ == "__main__":
-    plotInitialResults()
+    # plotInitialResults()
+    plotWithStddev()

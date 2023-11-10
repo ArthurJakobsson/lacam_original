@@ -65,8 +65,9 @@ class BatchRunner:
         command += " --outputcsv={}".format(self.outputcsv)
         
         command += " --outputpaths=logs/paths.txt"
-        command += " --neural_random=true"
-        command += " --prioritized_helpers=false"
+        command += " --relative_last_action=False"
+        command += " --neural_random=True"
+        command += " --prioritized_helpers=False"
 
         # True if want failure error
         # print(command)
@@ -118,9 +119,13 @@ def lacamExps(mapName, numScen, model, k, numSeeds):
         os.makedirs(batchFolderName)
 
     map_prefix = mapName.split('/')[-1][:-4]
-
     scen_prefix = "scripts/scen/scen-random/" + map_prefix + "-random-"
     allScens = [scen_prefix + str(s) + ".scen" for s in range(1, numScen + 1)]
+
+    if not model.endswith(".pt"):
+        if model != "None":
+            raise RuntimeError("Model must be None or end in .pt")
+        model = None
 
     # for s in range(1, numScen + 1):
         # myScen = scen_prefix + str(s) + ".scen"
@@ -131,15 +136,15 @@ def lacamExps(mapName, numScen, model, k, numSeeds):
         k=k,
         verbose=1,
         cutoffTime=60,
-        neural=[True, False][0],
+        neural = model is not None,
         force_goal_wait=[True, False][1],
         # output='logs/nntest_' + map_prefix + ".csv"
     )
-    if expSettings["neural"] is False:
-        expSettings["model"] = None
+    # if expSettings["neural"] is False:
+    #     expSettings["model"] = None
 
     expSettings["outputcsv"] = getCSVNameFromSettings(
-        batchFolderName, map_prefix, expSettings, "full2_random_priority")
+        batchFolderName, map_prefix, expSettings, "_5seeds")
     
     # create directory if it does not exist
     newFolderName = "/".join(expSettings["outputcsv"].split('/')[:-1])
@@ -157,9 +162,11 @@ def lacamExps(mapName, numScen, model, k, numSeeds):
 
 """
 Example run:
-python3 py/batch_runner.py --map scripts/map/random-32-32-10.map --numScen 5 
-            --model models/random_1_unweight_w4.pt --k 4 --numSeeds 1
+python3 py/batch_runner.py --map scripts/map/random-32-32-10.map --numScen 25 
+            --model models/random_1_unweight_w4.pt --k 4 --numSeeds 5
 
+python3 py/batch_runner.py --map scripts/map/random-32-32-10.map --numScen 25 
+            --model None --k 4 --numSeeds 5
 """
 if __name__ == "__main__":
 
@@ -168,11 +175,11 @@ if __name__ == "__main__":
                     description='For running experiments on different models via LaCAM',
                     epilog='Text at the bottom of help')
 
-    parser.add_argument('--map', type=str)
-    parser.add_argument( '--numScen', type=int)
-    parser.add_argument('--model', type=str)
-    parser.add_argument('--k', type=int)
-    parser.add_argument('--numSeeds', type=int)
+    parser.add_argument('--map', type=str, required=True)
+    parser.add_argument('--numScen', type=int, required=True)
+    parser.add_argument('--model', type=str, help="Path to model ending in .pt or [None]", required=True)
+    parser.add_argument('--k', type=int, required=True)
+    parser.add_argument('--numSeeds', type=int, required=True)
 
     args = parser.parse_args()
     # ./build/main -i scripts/scen/scen-even/den312d-even-1.scen -m scripts/map/den312d.map -v 1 --time_limit_sec=100 --neural_flag=true --model=models/den3121050agentsk8.pt -k 8 -N 1 
