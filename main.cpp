@@ -45,6 +45,8 @@ int main(int argc, char* argv[])
       .help("Whether to randomize outputs of neural instead of picking arg max").required();
   program.add_argument("--prioritized_helpers")
       .help("Whether to have earlier agents ignore later ones by not including them in helper bds and locs").required();
+  program.add_argument("--just_pibt")
+      .help("Whether to run just pibt").required();
 
   try {
     program.parse_known_args(argc, argv);
@@ -80,6 +82,9 @@ int main(int argc, char* argv[])
                       program.get<std::string>("neural_random") == "True";
   bool prioritized_helpers = program.get<std::string>("prioritized_helpers") == "true" ||
                       program.get<std::string>("prioritized_helpers") == "True";
+  bool just_pibt = program.get<std::string>("just_pibt") == "true" ||
+                      program.get<std::string>("just_pibt") == "True";
+
   if (!ins.is_valid(1)) return 1;
 
   //setup model
@@ -101,7 +106,7 @@ int main(int argc, char* argv[])
   
   const auto deadline = Deadline(time_limit_sec * 1000);
   AllSolution all_solution = solveAll(ins, verbose - 1, &deadline, &MT, &module, k, neural_flag, force_goal_wait,
-                                      relative_last_action, neural_random, prioritized_helpers);
+                                      relative_last_action, neural_random, prioritized_helpers, just_pibt);
   const auto comp_time_ms = deadline.elapsed_ms();
   std::tie(solution, cache_hit, loop_cnt) = all_solution;
   // failure

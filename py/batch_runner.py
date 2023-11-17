@@ -30,7 +30,7 @@ def getCSVNameFromSettings(folder, map_prefix, expSettings, extraSuffix=""):
 
 class BatchRunner:
     """Class for running a single scen file"""
-    def __init__(self, outputcsv, mapName, model, k, verbose, cutoffTime, neural, force_goal_wait) -> None:
+    def __init__(self, outputcsv, mapName, model, k, verbose, cutoffTime, neural, force_goal_wait, just_pibt) -> None:
         self.cutoffTime = cutoffTime,
         self.map = mapName
         # scen_prefix should be MapName-random- or MapName-even-, we will attach the scen number and .scen
@@ -44,6 +44,7 @@ class BatchRunner:
         # map_prefix = mapName.split('/')[-1][:-4]
         self.outputcsv = outputcsv
         self.force_goal_wait = force_goal_wait
+        self.just_pibt = just_pibt
 
     def runSingleSettingsOnMap(self, numAgents, aSeed, scen):
         # Main command
@@ -66,8 +67,9 @@ class BatchRunner:
         
         command += " --outputpaths=logs/paths.txt"
         command += " --relative_last_action=False"
-        command += " --neural_random=True"
-        command += " --prioritized_helpers=False"
+        command += " --neural_random=True" # True is better than False (verified)
+        command += " --prioritized_helpers=False"  # False is better than True (verified)
+        command += " --just_pibt={}".format(self.just_pibt)
 
         # True if want failure error
         # print(command)
@@ -138,13 +140,14 @@ def lacamExps(mapName, numScen, model, k, numSeeds):
         cutoffTime=60,
         neural = model is not None,
         force_goal_wait=[True, False][1],
+        just_pibt=True,
         # output='logs/nntest_' + map_prefix + ".csv"
     )
     # if expSettings["neural"] is False:
     #     expSettings["model"] = None
 
     expSettings["outputcsv"] = getCSVNameFromSettings(
-        batchFolderName, map_prefix, expSettings, "_5seeds")
+        batchFolderName, map_prefix, expSettings, "_pibt_5seeds")
     
     # create directory if it does not exist
     newFolderName = "/".join(expSettings["outputcsv"].split('/')[:-1])
