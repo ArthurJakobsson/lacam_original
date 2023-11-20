@@ -41,6 +41,8 @@ int main(int argc, char* argv[])
       .help("Whether to force agents to wait at their goal via PIBT").required();
   program.add_argument("--relative_last_action")
       .help("Include a relative last action input to the NN").required();
+  program.add_argument("--target_indicator")
+      .help("Include an indicator if at target to the NN").required();
   program.add_argument("--neural_random")
       .help("Whether to randomize outputs of neural instead of picking arg max").required();
   program.add_argument("--prioritized_helpers")
@@ -78,6 +80,8 @@ int main(int argc, char* argv[])
                       program.get<std::string>("force_goal_wait") == "True";
   bool relative_last_action = program.get<std::string>("relative_last_action") == "true" ||
                       program.get<std::string>("relative_last_action") == "True";
+  bool target_indicator = program.get<std::string>("target_indicator") == "true" ||
+                      program.get<std::string>("target_indicator") == "True";
   bool neural_random = program.get<std::string>("neural_random") == "true" ||
                       program.get<std::string>("neural_random") == "True";
   bool prioritized_helpers = program.get<std::string>("prioritized_helpers") == "true" ||
@@ -106,7 +110,7 @@ int main(int argc, char* argv[])
   
   const auto deadline = Deadline(time_limit_sec * 1000);
   AllSolution all_solution = solveAll(ins, verbose - 1, &deadline, &MT, &module, k, neural_flag, force_goal_wait,
-                                      relative_last_action, neural_random, prioritized_helpers, just_pibt);
+                                      relative_last_action, target_indicator, neural_random, prioritized_helpers, just_pibt);
   const auto comp_time_ms = deadline.elapsed_ms();
   std::tie(solution, cache_hit, loop_cnt) = all_solution;
   // failure

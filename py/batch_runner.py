@@ -30,7 +30,8 @@ def getCSVNameFromSettings(folder, map_prefix, expSettings, extraSuffix=""):
 
 class BatchRunner:
     """Class for running a single scen file"""
-    def __init__(self, outputcsv, mapName, model, k, verbose, cutoffTime, neural, force_goal_wait, just_pibt) -> None:
+    def __init__(self, outputcsv, mapName, model, k, verbose, cutoffTime, neural, relative_last_action, 
+                            target_indicator, force_goal_wait, just_pibt) -> None:
         self.cutoffTime = cutoffTime,
         self.map = mapName
         # scen_prefix should be MapName-random- or MapName-even-, we will attach the scen number and .scen
@@ -43,6 +44,8 @@ class BatchRunner:
         self.neural=neural
         # map_prefix = mapName.split('/')[-1][:-4]
         self.outputcsv = outputcsv
+        self.target_indicator = target_indicator
+        self.relative_last_action = relative_last_action
         self.force_goal_wait = force_goal_wait
         self.just_pibt = just_pibt
 
@@ -66,7 +69,8 @@ class BatchRunner:
         command += " --outputcsv={}".format(self.outputcsv)
         
         command += " --outputpaths=logs/paths.txt"
-        command += " --relative_last_action=False"
+        command += " --relative_last_action={}".format(self.relative_last_action)
+        command += " --target_indicator={}".format(self.target_indicator)
         command += " --neural_random=True" # True is better than False (verified)
         command += " --prioritized_helpers=False"  # False is better than True (verified)
         command += " --just_pibt={}".format(self.just_pibt)
@@ -132,22 +136,24 @@ def lacamExps(mapName, numScen, model, k, numSeeds):
     # for s in range(1, numScen + 1):
         # myScen = scen_prefix + str(s) + ".scen"
     expSettings = dict(
-        mapName=mapName,
-        # scen=myScen,
-        model=model,
-        k=k,
-        verbose=1,
-        cutoffTime=60,
+        mapName = mapName,
+        # scen = myScen,
+        model = model,
+        k = k,
+        verbose = 1,
+        cutoffTime = 60,
         neural = model is not None,
-        force_goal_wait=[True, False][1],
-        just_pibt=True,
-        # output='logs/nntest_' + map_prefix + ".csv"
+        relative_last_action = [True, False][0],
+        target_indicator = [True, False][0],
+        force_goal_wait = [True, False][1],
+        just_pibt = False,
+        # output = 'logs/nntest_' + map_prefix + ".csv"
     )
     # if expSettings["neural"] is False:
     #     expSettings["model"] = None
 
     expSettings["outputcsv"] = getCSVNameFromSettings(
-        batchFolderName, map_prefix, expSettings, "_pibt_5seeds")
+        batchFolderName, map_prefix, expSettings, "_1seeds")
     
     # create directory if it does not exist
     newFolderName = "/".join(expSettings["outputcsv"].split('/')[:-1])
@@ -170,6 +176,9 @@ python3 py/batch_runner.py --map scripts/map/random-32-32-10.map --numScen 25
 
 python3 py/batch_runner.py --map scripts/map/random-32-32-10.map --numScen 25 
             --model None --k 4 --numSeeds 5
+
+python3 py/batch_runner.py --map scripts/map/random-32-32-10.map --numScen 25 \
+            --model models/random_20_prev_action.pt --k 4 --numSeeds 5
 """
 if __name__ == "__main__":
 

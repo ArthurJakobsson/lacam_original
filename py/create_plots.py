@@ -160,7 +160,8 @@ def plotWithStddev():
     BASEFOLDER = "/home/rishi/Desktop/CMU/Research/ml-mapf/lacam/lacam_original/logs"
     SPECIFIC_FOLDER = "{}/random-32-32-10".format(BASEFOLDER)
     compareModel = ["random_1_unweight_w4full_random.csv",
-                    "random_1_unweight_w4_5seeds.csv"][1]
+                    "random_1_unweight_w4_5seeds.csv",
+                    "random_20_prev_action_full_5seeds.csv"][2]
     baseModel = ["nonnfull.csv", "nonn_20seeds.csv", "nonnfull_test_20seeds.csv"][1]
     df = loadAndCleanDf2("{}/{}".format(SPECIFIC_FOLDER, compareModel),
                     "{}/{}".format(SPECIFIC_FOLDER, baseModel))
@@ -190,7 +191,8 @@ def plotWithStddev():
     df.boxplot(column="soc_dif", by="agents", grid=False, showfliers=False)
     plt.axhline(c='k', linestyle='--', alpha=0.5)
     plt.ylabel("(Our SoC - Baseline SoC) / LB")
-    plt.savefig("testFig3".format(saveFolder), bbox_inches='tight', dpi=600)
+    modelName = compareModel.split(".")[0]
+    plt.savefig("{}_testFig3".format(modelName, saveFolder), bbox_inches='tight', dpi=600)
 
     for numAgents in df["agents"].unique():
         tmpDf = df[df["agents"] == numAgents]

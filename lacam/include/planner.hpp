@@ -75,13 +75,14 @@ struct Planner {
   bool neural_flag; // Whether to use NN or not
   bool force_goal_wait; // Whether to force agents to wait at their goal via PIBT
   bool relative_last_action; // Whether to use relative last action or not
+  bool target_indicator; // Whether to use target indicator or not
   bool neural_random; // Whether to randomize outputs of neural instead of picking arg max
   bool prioritized_helpers; // Whether to prioritize helpers for NN (so earlier agents ignore later ones)
   bool just_pibt; // Whether to just use PIBT instead of LaCAM
 
   Planner(const Instance* _ins, const Deadline* _deadline, std::mt19937* _MT,
           torch::jit::script::Module* _module, int _k = 4, int _verbose = 0, bool _neural_flag = true,
-          bool _force_goal_wait = false, bool _relative_last_action = false, 
+          bool _force_goal_wait = false, bool _relative_last_action = false, bool _target_indicator = false,
           bool _neural_random = false, bool _prioritized_helpers = false, 
           bool _just_pibt = false);
   torch::Tensor slice_and_fix_pad(torch::Tensor curr_bd, int row, int col, int subtract_row, int subtract_col);
@@ -102,13 +103,13 @@ struct Planner {
 Solution solve(const Instance& ins, const int verbose = 0,
                const Deadline* deadline = nullptr, std::mt19937* MT = nullptr,
                torch::jit::script::Module* _module = nullptr, int k = 4, bool _neural_flag = true,
-               bool _force_goal_wait = false, bool _relative_last_action = false,
+               bool _force_goal_wait = false, bool _relative_last_action = false, bool _target_indicator = false,
                bool _neural_random = false, bool _prioritized_helpers = false, 
                bool _just_pibt = false);
 
 AllSolution solveAll(const Instance& ins, const int verbose = 0,
                const Deadline* deadline = nullptr, std::mt19937* MT = nullptr,
                torch::jit::script::Module* _module = nullptr, int k = 4, bool _neural_flag = true,
-               bool _force_goal_wait = false, bool _relative_last_action = false,
+               bool _force_goal_wait = false, bool _relative_last_action = false, bool _target_indicator = false,
                bool _neural_random = false, bool _prioritized_helpers = false,
                bool _just_pibt = false);
