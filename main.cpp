@@ -49,6 +49,8 @@ int main(int argc, char* argv[])
       .help("Whether to have earlier agents ignore later ones by not including them in helper bds and locs").required();
   program.add_argument("--just_pibt")
       .help("Whether to run just pibt").required();
+  program.add_argument("--tie_breaking")
+      .help("Whether to run tie_breaking metric").required();
 
   try {
     program.parse_known_args(argc, argv);

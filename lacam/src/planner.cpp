@@ -65,7 +65,7 @@ Planner::Planner(const Instance* _ins, const Deadline* _deadline,
                  int _k, int _verbose, bool _neural_flag, bool _force_goal_wait,
                  bool relative_last_action, bool target_indicator,
                  bool _neural_random, bool _prioritized_helpers,
-                 bool _just_pibt)
+                 bool _just_pibt, bool _tie_breaking)
     : ins(_ins),
       deadline(_deadline),
       MT(_MT),
@@ -87,7 +87,8 @@ Planner::Planner(const Instance* _ins, const Deadline* _deadline,
       target_indicator(target_indicator),
       neural_random(_neural_random),
       prioritized_helpers(_prioritized_helpers),
-      just_pibt(_just_pibt)
+      just_pibt(_just_pibt),
+      tie_breaking(_tie_breaking)
 {
 }
 
@@ -604,19 +605,25 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
     //sort by NN
     std::sort(C_next[i].begin(), C_next[i].begin() + Ks + 1,
             [&](Vertex* const v, Vertex* const u) {
-              return preds[i][v->id] > // + tie_breakers[v->id]
-                      preds[i][u->id]; // + tie_breakers[u->id];
-            });
+      if (tie_breaking) {
+        if (D.get(i,v) == D.get(i,u)) {
+          return preds[i][v->id] > preds[i][u->id];
+        }
+        return D.get(i,v) < D.get(i,u);
+      }
+      return preds[i][v->id] >
+              preds[i][u->id];
+    });
   } else {
     //native lacam (sort by distance - backward dijkstras)
     std::sort(C_next[i].begin(), C_next[i].begin() + Ks + 1,
               [&](Vertex* const v, Vertex* const u) {
-                return D.get(i,v)  + tie_breakers[v->id] <
-                      D.get(i,u) + tie_breakers[u->id];
-              });
+      return D.get(i,v)  + tie_breakers[v->id] <
+            D.get(i,u) + tie_breakers[u->id];
+    });
   }
 
-  bool naive_collision_checking = true;
+  bool naive_collision_checking = false;
 
   for (size_t k = 0; k < Ks + 1; ++k) {
     auto u = C_next[i][k];
@@ -659,12 +666,12 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
 Solution solve(const Instance& ins, const int verbose, const Deadline* deadline,
                std::mt19937* MT, torch::jit::script::Module* module, int k, bool neural_flag,
                bool force_goal_wait, bool relative_last_action, bool target_indicator,
-               bool neural_random, bool prioritized_helpers, bool just_pibt)
+               bool neural_random, bool prioritized_helpers, bool just_pibt, bool tie_breaking)
 {
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tpre-processing");
   auto planner = Planner(&ins, deadline, MT, module, k, verbose, neural_flag, force_goal_wait, 
                          relative_last_action, target_indicator, neural_random,
-                        prioritized_helpers, just_pibt);
+                        prioritized_helpers, just_pibt, tie_breaking);
   AllSolution all_solution = planner.solve();
   return std::get<0>(all_solution);
 }
@@ -673,11 +680,11 @@ Solution solve(const Instance& ins, const int verbose, const Deadline* deadline,
 AllSolution solveAll(const Instance& ins, const int verbose, const Deadline* deadline,
                std::mt19937* MT, torch::jit::script::Module* module, int k, bool neural_flag,
                bool force_goal_wait, bool relative_last_action, bool target_indicator,
-               bool neural_random, bool prioritized_helpers, bool just_pibt)
+               bool neural_random, bool prioritized_helpers, bool just_pibt, bool tie_breaking)
 {
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tpre-processing");
   auto planner = Planner(&ins, deadline, MT, module, k, verbose, neural_flag, force_goal_wait, 
                          relative_last_action, target_indicator, neural_random, 
-                         prioritized_helpers, just_pibt);
+                         prioritized_helpers, just_pibt, tie_breaking);
   return planner.solve();
 }

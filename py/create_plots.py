@@ -161,7 +161,8 @@ def plotWithStddev():
     SPECIFIC_FOLDER = "{}/random-32-32-10".format(BASEFOLDER)
     compareModel = ["random_1_unweight_w4full_random.csv",
                     "random_1_unweight_w4_5seeds.csv",
-                    "random_20_prev_action_full_5seeds.csv"][2]
+                    "random_20_prev_action_full_5seeds.csv",
+                    "random_1_unweight_w4_tiebreak_5seeds.csv"][-1]
     baseModel = ["nonnfull.csv", "nonn_20seeds.csv", "nonnfull_test_20seeds.csv"][1]
     df = loadAndCleanDf2("{}/{}".format(SPECIFIC_FOLDER, compareModel),
                     "{}/{}".format(SPECIFIC_FOLDER, baseModel))
@@ -192,7 +193,7 @@ def plotWithStddev():
     plt.axhline(c='k', linestyle='--', alpha=0.5)
     plt.ylabel("(Our SoC - Baseline SoC) / LB")
     modelName = compareModel.split(".")[0]
-    plt.savefig("{}_testFig3".format(modelName, saveFolder), bbox_inches='tight', dpi=600)
+    plt.savefig("{}/{}_path_cost".format(saveFolder, modelName), bbox_inches='tight', dpi=600)
 
     for numAgents in df["agents"].unique():
         tmpDf = df[df["agents"] == numAgents]
@@ -203,7 +204,8 @@ def plotInitialResults():
     BASEFOLDER = "/home/rishi/Desktop/CMU/Research/ml-mapf/lacam/lacam_original/logs"
     SPECIFIC_FOLDER = "{}/random-32-32-10".format(BASEFOLDER)
     baseDf = loadAndCleanDf("{}/random-32-32-10/nonnfull.csv".format(BASEFOLDER))
-    df = loadAndCleanDf("{}/random-32-32-10/random_1_unweight_w4full_random_priority.csv".format(BASEFOLDER))
+    # df = loadAndCleanDf("{}/random-32-32-10/random_1_unweight_w4full_random_priority.csv".format(BASEFOLDER))
+    df = loadAndCleanDf("{}/random-32-32-10/random_1_tiebreak_5seeds.csv".format(BASEFOLDER))
     # df = loadAndCleanDf("{}/random-32-32-10/random_1_w4_wait.csv".format(BASEFOLDER))
     # df = loadAndCleanDf("{}/random-32-32-10/random_1_sub_w4_wait.csv".format(BASEFOLDER))
     # df = pd.concat([df1, df2], ignore_index=True, sort=False)
@@ -255,7 +257,7 @@ def plotInitialResults():
     # add line on y=0
     plt.plot([df["agents"].min(), df["agents"].max()], [0, 0], 'k-', lw=2)
     plt.ylabel("(Our SoC - Baseline SoC) / LB")
-    plt.savefig("{}/path_cost_priority_random.png".format(saveFolder), bbox_inches='tight', dpi=600)
+    plt.savefig("{}/test_path_cost_random.png".format(saveFolder), bbox_inches='tight', dpi=600)
     return
 
     # df = df[(df["success"] >= 0.5) & (df["success_baseline"] >= 0.5)]
