@@ -51,6 +51,8 @@ int main(int argc, char* argv[])
       .help("Whether to run just pibt").required();
   program.add_argument("--tie_breaking")
       .help("Whether to run tie_breaking metric").required();
+  program.add_argument("--r_weight")
+      .help("r_weight for weighted combination").required();
 
   try {
     program.parse_known_args(argc, argv);
@@ -90,6 +92,15 @@ int main(int argc, char* argv[])
                       program.get<std::string>("prioritized_helpers") == "True";
   bool just_pibt = program.get<std::string>("just_pibt") == "true" ||
                       program.get<std::string>("just_pibt") == "True";
+  bool tie_breaking = program.get<std::string>("tie_breaking") == "true" ||
+                      program.get<std::string>("tie_breaking") == "True";
+  double r_weight = std::stod(program.get<std::string>("r_weight"));
+  if (tie_breaking) {
+    assert(r_weight == 0);
+  }
+  if (r_weight != 0) {
+    assert(tie_breaking == false && neural_random == false);
+  }
 
   if (!ins.is_valid(1)) return 1;
 
@@ -112,7 +123,8 @@ int main(int argc, char* argv[])
   
   const auto deadline = Deadline(time_limit_sec * 1000);
   AllSolution all_solution = solveAll(ins, verbose - 1, &deadline, &MT, &module, k, neural_flag, force_goal_wait,
-                                      relative_last_action, target_indicator, neural_random, prioritized_helpers, just_pibt);
+                                      relative_last_action, target_indicator, neural_random, prioritized_helpers, 
+                                      just_pibt, tie_breaking, r_weight);
   const auto comp_time_ms = deadline.elapsed_ms();
   std::tie(solution, cache_hit, loop_cnt) = all_solution;
   // failure

@@ -31,7 +31,7 @@ def getCSVNameFromSettings(folder, map_prefix, expSettings, extraSuffix=""):
 class BatchRunner:
     """Class for running a single scen file"""
     def __init__(self, outputcsv, mapName, model, k, verbose, cutoffTime, neural, relative_last_action, 
-                            target_indicator, force_goal_wait, just_pibt) -> None:
+                            target_indicator, force_goal_wait, just_pibt, tie_breaking, r_weight) -> None:
         self.cutoffTime = cutoffTime,
         self.map = mapName
         # scen_prefix should be MapName-random- or MapName-even-, we will attach the scen number and .scen
@@ -48,6 +48,8 @@ class BatchRunner:
         self.relative_last_action = relative_last_action
         self.force_goal_wait = force_goal_wait
         self.just_pibt = just_pibt
+        self.tie_breaking = tie_breaking
+        self.r_weight = r_weight
 
     def runSingleSettingsOnMap(self, numAgents, aSeed, scen):
         # Main command
@@ -71,9 +73,14 @@ class BatchRunner:
         command += " --outputpaths=logs/paths.txt"
         command += " --relative_last_action={}".format(self.relative_last_action)
         command += " --target_indicator={}".format(self.target_indicator)
-        command += " --neural_random=True" # True is better than False (verified)
-        command += " --prioritized_helpers=False"  # False is better than True (verified)
+        if self.r_weight == 0:
+            command += " --neural_random=True" # True is better than False (verified)
+        else:
+            command += " --neural_random=False"
+        command += " --prioritized_helpers=True"  # False is better than True (verified)
         command += " --just_pibt={}".format(self.just_pibt)
+        command += " --tie_breaking={}".format(self.tie_breaking)
+        command += " --r_weight={}".format(self.r_weight)
 
         # True if want failure error
         # print(command)
@@ -118,7 +125,7 @@ class BatchRunner:
                     break
 
 
-def lacamExps(mapName, numScen, model, k, numSeeds):
+def lacamExps(mapName, numScen, model, k, numSeeds, r_weight):
     batchFolderName = "logs"
     # Make folder if does not exist
     if not os.path.isdir(batchFolderName):
@@ -143,17 +150,19 @@ def lacamExps(mapName, numScen, model, k, numSeeds):
         verbose = 1,
         cutoffTime = 60,
         neural = model is not None,
-        relative_last_action = [True, False][0],
-        target_indicator = [True, False][0],
+        relative_last_action = [True, False][1],
+        target_indicator = [True, False][1],
         force_goal_wait = [True, False][1],
         just_pibt = False,
+        tie_breaking = False,
+        r_weight = r_weight,
         # output = 'logs/nntest_' + map_prefix + ".csv"
     )
     # if expSettings["neural"] is False:
     #     expSettings["model"] = None
 
     expSettings["outputcsv"] = getCSVNameFromSettings(
-        batchFolderName, map_prefix, expSettings, "_1seeds")
+        batchFolderName, map_prefix, expSettings, "_rweightall{}_5seeds".format(int(r_weight*10)))
     
     # create directory if it does not exist
     newFolderName = "/".join(expSettings["outputcsv"].split('/')[:-1])
@@ -161,7 +170,8 @@ def lacamExps(mapName, numScen, model, k, numSeeds):
         os.makedirs(newFolderName)
 
     # agentRange = [1] + list(range(10, 100+1, 10))
-    agentRange = list(range(50, mapsToNumAgents[map_prefix][1]+1, 50))
+    # agentRange = list(range(50, mapsToNumAgents[map_prefix][1]+1, 50))
+    agentRange = list(range(50, 350+1, 50))
 
     seeds = list(range(1, numSeeds + 1))
 
@@ -169,13 +179,18 @@ def lacamExps(mapName, numScen, model, k, numSeeds):
     myBR = BatchRunner(**expSettings)
     myBR.runBatchExps(agentRange, seeds, allScens)
 
+def runRExps():
+    for r_weight in [0.3, 1.5, 3, 15, 100][2:]:
+        lacamExps("scripts/map/random-32-32-10.map", 25, "models/random_1_unweight_w4.pt", 
+                k=4, numSeeds=5, r_weight=r_weight)
+
 """
 Example run:
-python3 py/batch_runner.py --map scripts/map/random-32-32-10.map --numScen 25 
-            --model models/random_1_unweight_w4.pt --k 4 --numSeeds 5
+python3 py/batch_runner.py --map scripts/map/random-32-32-10.map --numScen 25 \
+            --model models/random_1_unweight_w4.pt --k 4 --numSeeds 1 
 
 python3 py/batch_runner.py --map scripts/map/random-32-32-10.map --numScen 25 
-            --model None --k 4 --numSeeds 5
+            --model None --k 4 --numSeeds 20
 
 python3 py/batch_runner.py --map scripts/map/random-32-32-10.map --numScen 25 \
             --model models/random_20_prev_action.pt --k 4 --numSeeds 5
@@ -195,4 +210,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     # ./build/main -i scripts/scen/scen-even/den312d-even-1.scen -m scripts/map/den312d.map -v 1 --time_limit_sec=100 --neural_flag=true --model=models/den3121050agentsk8.pt -k 8 -N 1 
-    lacamExps(args.map, args.numScen, args.model, args.k, args.numSeeds)
+    # lacamExps(args.map, args.numScen, args.model, args.k, args.numSeeds)
+    runRExps()

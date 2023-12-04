@@ -156,13 +156,26 @@ def loadAndCleanDf2(filePath1, baseFilePath):
     # pdb.set_trace()
     return dfMerged
 
+def loadAndCleanMagatDf(filePath):
+    df = pd.read_csv(filePath)
+    df['name'] = "magat"
+    df["map_file"] = "random-32-32-10.map"
+    
+    def scenName(row):
+        return "scripts/scen/scen-random/random-32-32-10-random-{}.scen".format(row["scen"])
+    df.apply(scenName, axis=1)
+    
+
+
+
 def plotWithStddev():
     BASEFOLDER = "/home/rishi/Desktop/CMU/Research/ml-mapf/lacam/lacam_original/logs"
     SPECIFIC_FOLDER = "{}/random-32-32-10".format(BASEFOLDER)
     compareModel = ["random_1_unweight_w4full_random.csv",
                     "random_1_unweight_w4_5seeds.csv",
                     "random_20_prev_action_full_5seeds.csv",
-                    "random_1_unweight_w4_tiebreak_5seeds.csv"][-1]
+                    "random_1_unweight_w4_tiebreak_5seeds.csv",
+                    "random_1_unweight_w4_rweightall1000_5seeds.csv"][-1]
     baseModel = ["nonnfull.csv", "nonn_20seeds.csv", "nonnfull_test_20seeds.csv"][1]
     df = loadAndCleanDf2("{}/{}".format(SPECIFIC_FOLDER, compareModel),
                     "{}/{}".format(SPECIFIC_FOLDER, baseModel))
