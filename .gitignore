@@ -52,5 +52,6 @@ Makefile
 CPack*
 logs
 py/*.png
+py/*.pdf
 
 .vscode/c_cpp_properties.json

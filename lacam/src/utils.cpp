@@ -43,3 +43,8 @@ float get_random_float(std::mt19937* MT, float from, float to)
   std::uniform_real_distribution<float> r(from, to);
   return r(*MT);
 }
+
+float get_noisy_value(std::mt19937* MT, float value, float noise) {
+  float get_noise = get_random_float(MT, 1-noise, 1);
+  return value * get_noise;
+}

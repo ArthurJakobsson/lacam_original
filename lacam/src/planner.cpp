@@ -65,7 +65,8 @@ Planner::Planner(const Instance* _ins, const Deadline* _deadline,
                  int _k, int _verbose, bool _neural_flag, bool _force_goal_wait,
                  bool relative_last_action, bool target_indicator,
                  bool _neural_random, bool _prioritized_helpers,
-                 bool _just_pibt, bool _tie_breaking, double _r_weight)
+                 bool _just_pibt, bool _tie_breaking, double _r_weight,
+                 std::string h_type, double mult_noise)
     : ins(_ins),
       deadline(_deadline),
       MT(_MT),
@@ -74,7 +75,7 @@ Planner::Planner(const Instance* _ins, const Deadline* _deadline,
       K(_k),
       N(ins->N),
       V_size(ins->G.size()),
-      D(DistTable(ins)),
+      D(DistTable(ins, _MT, h_type, mult_noise)),
       C_next(Candidates(N, std::array<Vertex*, 5>())),
       tie_breakers(std::vector<float>(V_size, 0)),
       A(Agents(N, nullptr)),
@@ -625,8 +626,8 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
     //native lacam (sort by distance - backward dijkstras)
     std::sort(C_next[i].begin(), C_next[i].begin() + Ks + 1,
               [&](Vertex* const v, Vertex* const u) {
-      return D.get(i,v)  + tie_breakers[v->id] <
-            D.get(i,u) + tie_breakers[u->id];
+      return D.getDouble(i,v)  + tie_breakers[v->id] <
+            D.getDouble(i,u) + tie_breakers[u->id];
     });
   }
 
@@ -674,12 +675,13 @@ Solution solve(const Instance& ins, const int verbose, const Deadline* deadline,
                std::mt19937* MT, torch::jit::script::Module* module, int k, bool neural_flag,
                bool force_goal_wait, bool relative_last_action, bool target_indicator,
                bool neural_random, bool prioritized_helpers, bool just_pibt, bool tie_breaking,
-               double r_weight)
+               double r_weight, std::string h_type, double mult_noise)
 {
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tpre-processing");
   auto planner = Planner(&ins, deadline, MT, module, k, verbose, neural_flag, force_goal_wait, 
                          relative_last_action, target_indicator, neural_random,
-                        prioritized_helpers, just_pibt, tie_breaking, r_weight);
+                        prioritized_helpers, just_pibt, tie_breaking, r_weight,
+                        h_type, mult_noise);
   AllSolution all_solution = planner.solve();
   return std::get<0>(all_solution);
 }
@@ -689,11 +691,12 @@ AllSolution solveAll(const Instance& ins, const int verbose, const Deadline* dea
                std::mt19937* MT, torch::jit::script::Module* module, int k, bool neural_flag,
                bool force_goal_wait, bool relative_last_action, bool target_indicator,
                bool neural_random, bool prioritized_helpers, bool just_pibt, bool tie_breaking,
-               double r_weight)
+               double r_weight, std::string h_type, double mult_noise)
 {
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tpre-processing");
   auto planner = Planner(&ins, deadline, MT, module, k, verbose, neural_flag, force_goal_wait, 
                          relative_last_action, target_indicator, neural_random, 
-                         prioritized_helpers, just_pibt, tie_breaking, r_weight);
+                         prioritized_helpers, just_pibt, tie_breaking, r_weight,
+                         h_type, mult_noise);
   return planner.solve();
 }

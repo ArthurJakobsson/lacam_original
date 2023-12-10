@@ -47,3 +47,4 @@ double elapsed_ns(const Deadline* deadline);
 bool is_expired(const Deadline* deadline);
 
 float get_random_float(std::mt19937* MT, float from = 0, float to = 1);
+float get_noisy_value(std::mt19937* MT, float value, float noise);

@@ -86,7 +86,8 @@ struct Planner {
           torch::jit::script::Module* _module, int _k = 4, int _verbose = 0, bool _neural_flag = true,
           bool _force_goal_wait = false, bool _relative_last_action = false, bool _target_indicator = false,
           bool _neural_random = false, bool _prioritized_helpers = false, 
-          bool _just_pibt = false, bool _tie_breaking = false, double r_weight = 0);
+          bool _just_pibt = false, bool _tie_breaking = false, double r_weight = 0,
+          std::string h_type = "perfect", double mult_noise = 0);
   torch::Tensor slice_and_fix_pad(torch::Tensor curr_bd, int row, int col, int subtract_row, int subtract_col);
   std::vector<std::map<int, double>> createNbyFive (const Node* S);
   torch::Tensor get_map();
@@ -107,11 +108,13 @@ Solution solve(const Instance& ins, const int verbose = 0,
                torch::jit::script::Module* _module = nullptr, int k = 4, bool _neural_flag = true,
                bool _force_goal_wait = false, bool _relative_last_action = false, bool _target_indicator = false,
                bool _neural_random = false, bool _prioritized_helpers = false, 
-               bool _just_pibt = false, bool _tie_breaking = false, double r_weight = 0);
+               bool _just_pibt = false, bool _tie_breaking = false, double r_weight = 0,
+               std::string h_type = "perfect", double mult_noise = 0);
 
 AllSolution solveAll(const Instance& ins, const int verbose = 0,
                const Deadline* deadline = nullptr, std::mt19937* MT = nullptr,
                torch::jit::script::Module* _module = nullptr, int k = 4, bool _neural_flag = true,
                bool _force_goal_wait = false, bool _relative_last_action = false, bool _target_indicator = false,
                bool _neural_random = false, bool _prioritized_helpers = false,
-               bool _just_pibt = false, bool _tie_breaking = false, double r_weight = 0);
+               bool _just_pibt = false, bool _tie_breaking = false, double r_weight = 0,
+               std::string h_type = "perfect", double mult_noise = 0);

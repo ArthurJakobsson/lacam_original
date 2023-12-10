@@ -53,6 +53,10 @@ int main(int argc, char* argv[])
       .help("Whether to run tie_breaking metric").required();
   program.add_argument("--r_weight")
       .help("r_weight for weighted combination").required();
+  program.add_argument("--h_type")
+      .help("heuristic type, one of [perfect, manhattan, noisy]").required();
+  program.add_argument("--mult_noise")
+      .help("heuristic multi_noise, [0,1]").required();
 
   try {
     program.parse_known_args(argc, argv);
@@ -94,6 +98,12 @@ int main(int argc, char* argv[])
                       program.get<std::string>("just_pibt") == "True";
   bool tie_breaking = program.get<std::string>("tie_breaking") == "true" ||
                       program.get<std::string>("tie_breaking") == "True";
+  const std::string h_type = program.get<std::string>("h_type");
+  const double mult_noise = std::stod(program.get<std::string>("mult_noise"));
+  if (mult_noise != 0) {
+    assert(h_type == "noisy");
+  }
+
   double r_weight = std::stod(program.get<std::string>("r_weight"));
   if (tie_breaking) {
     assert(r_weight == 0);
@@ -124,7 +134,7 @@ int main(int argc, char* argv[])
   const auto deadline = Deadline(time_limit_sec * 1000);
   AllSolution all_solution = solveAll(ins, verbose - 1, &deadline, &MT, &module, k, neural_flag, force_goal_wait,
                                       relative_last_action, target_indicator, neural_random, prioritized_helpers, 
-                                      just_pibt, tie_breaking, r_weight);
+                                      just_pibt, tie_breaking, r_weight, h_type, mult_noise);
   const auto comp_time_ms = deadline.elapsed_ms();
   std::tie(solution, cache_hit, loop_cnt) = all_solution;
   // failure

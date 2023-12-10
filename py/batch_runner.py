@@ -31,7 +31,8 @@ def getCSVNameFromSettings(folder, map_prefix, expSettings, extraSuffix=""):
 class BatchRunner:
     """Class for running a single scen file"""
     def __init__(self, outputcsv, mapName, model, k, verbose, cutoffTime, neural, relative_last_action, 
-                            target_indicator, force_goal_wait, just_pibt, tie_breaking, r_weight) -> None:
+                            target_indicator, force_goal_wait, just_pibt, tie_breaking, r_weight,
+                            h_type, mult_noise) -> None:
         self.cutoffTime = cutoffTime,
         self.map = mapName
         # scen_prefix should be MapName-random- or MapName-even-, we will attach the scen number and .scen
@@ -50,6 +51,8 @@ class BatchRunner:
         self.just_pibt = just_pibt
         self.tie_breaking = tie_breaking
         self.r_weight = r_weight
+        self.h_type = h_type
+        self.mult_noise = mult_noise
 
     def runSingleSettingsOnMap(self, numAgents, aSeed, scen):
         # Main command
@@ -81,6 +84,8 @@ class BatchRunner:
         command += " --just_pibt={}".format(self.just_pibt)
         command += " --tie_breaking={}".format(self.tie_breaking)
         command += " --r_weight={}".format(self.r_weight)
+        command += " --h_type={}".format(self.h_type)
+        command += " --mult_noise={}".format(self.mult_noise)
 
         # True if want failure error
         # print(command)
@@ -102,7 +107,7 @@ class BatchRunner:
         numExpPerSetting = len(seeds) * len(scens)
         for aNum in agentNumbers:
             numRan, numFailed = self.detectExistingStatus(aNum, scens)
-            if numRan > 0 and numFailed > numExpPerSetting/2:  # Check if existing run all failed
+            if numRan > 0 and numFailed > numExpPerSetting*4/5:  # Check if existing run all failed
                 print(
                     "Terminating early because all failed with {} number of agents".format(aNum))
                 break
@@ -119,13 +124,14 @@ class BatchRunner:
                 numRan, numFailed = self.detectExistingStatus(aNum, scens)
                 if numRan == 0:
                     raise RuntimeError("Cannot detect any runs although should have ran!")
-                if numRan - numFailed <= numExpPerSetting / 2:
+                # if numRan - numFailed <= numExpPerSetting/5:
+                if numRan > 0 and numFailed > numExpPerSetting*4/5:
                     print(
                         "Terminating early because all failed with {} number of agents".format(aNum))
                     break
 
 
-def lacamExps(mapName, numScen, model, k, numSeeds, r_weight):
+def lacamExps(mapName, numScen, model, k, numSeeds, r_weight=0, mult_noise=0, just_pibt=False):
     batchFolderName = "logs"
     # Make folder if does not exist
     if not os.path.isdir(batchFolderName):
@@ -153,16 +159,26 @@ def lacamExps(mapName, numScen, model, k, numSeeds, r_weight):
         relative_last_action = [True, False][1],
         target_indicator = [True, False][1],
         force_goal_wait = [True, False][1],
-        just_pibt = False,
+        just_pibt = just_pibt,
         tie_breaking = False,
         r_weight = r_weight,
+        h_type = "perfect",
+        mult_noise = mult_noise,
         # output = 'logs/nntest_' + map_prefix + ".csv"
     )
     # if expSettings["neural"] is False:
     #     expSettings["model"] = None
 
+    if just_pibt:
+        pibtString = "pibt"
+    else:
+        pibtString = "lacam"
+
     expSettings["outputcsv"] = getCSVNameFromSettings(
-        batchFolderName, map_prefix, expSettings, "_rweightall{}_5seeds".format(int(r_weight*10)))
+        batchFolderName, map_prefix, expSettings, "_pibt_20seeds")
+        # batchFolderName, map_prefix, expSettings, "_manhattan_{}_5seeds".format(pibtString))
+        # batchFolderName, map_prefix, expSettings, "_noisy_{}_{}_5seeds".format(pibtString, int(mult_noise*100)))
+        # batchFolderName, map_prefix, expSettings, "_rweightall{}_5seeds".format(int(r_weight*10)))
     
     # create directory if it does not exist
     newFolderName = "/".join(expSettings["outputcsv"].split('/')[:-1])
@@ -171,7 +187,7 @@ def lacamExps(mapName, numScen, model, k, numSeeds, r_weight):
 
     # agentRange = [1] + list(range(10, 100+1, 10))
     # agentRange = list(range(50, mapsToNumAgents[map_prefix][1]+1, 50))
-    agentRange = list(range(50, 350+1, 50))
+    agentRange = list(range(50, 450+1, 50))
 
     seeds = list(range(1, numSeeds + 1))
 
@@ -183,14 +199,21 @@ def runRExps():
     for r_weight in [0.3, 1.5, 3, 15, 100][2:]:
         lacamExps("scripts/map/random-32-32-10.map", 25, "models/random_1_unweight_w4.pt", 
                 k=4, numSeeds=5, r_weight=r_weight)
+        
+def runNoisyExps():
+    for mult_noise in [0.01, 0.05, 0.1, 0.2]:
+        lacamExps("scripts/map/random-32-32-10.map", 25, "None", 
+                k=4, numSeeds=5, r_weight=0, mult_noise=mult_noise, just_pibt=False)
+        lacamExps("scripts/map/random-32-32-10.map", 25, "None", 
+                k=4, numSeeds=5, r_weight=0, mult_noise=mult_noise, just_pibt=True)
 
 """
 Example run:
 python3 py/batch_runner.py --map scripts/map/random-32-32-10.map --numScen 25 \
-            --model models/random_1_unweight_w4.pt --k 4 --numSeeds 1 
+            --model models/random_1_unweight_w4.pt --k 4 --numSeeds 5
 
-python3 py/batch_runner.py --map scripts/map/random-32-32-10.map --numScen 25 
-            --model None --k 4 --numSeeds 20
+python3 py/batch_runner.py --map scripts/map/random-32-32-10.map --numScen 25 \
+            --model None --k 4 --numSeeds 5
 
 python3 py/batch_runner.py --map scripts/map/random-32-32-10.map --numScen 25 \
             --model models/random_20_prev_action.pt --k 4 --numSeeds 5
@@ -211,4 +234,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
     # ./build/main -i scripts/scen/scen-even/den312d-even-1.scen -m scripts/map/den312d.map -v 1 --time_limit_sec=100 --neural_flag=true --model=models/den3121050agentsk8.pt -k 8 -N 1 
     # lacamExps(args.map, args.numScen, args.model, args.k, args.numSeeds)
-    runRExps()
+    # runRExps()
+    # runNoisyExps()
+
+    lacamExps("scripts/map/random-32-32-10.map", 25, "None", 
+                k=4, numSeeds=20, just_pibt=True)
+    # lacamExps("scripts/map/random-32-32-10.map", 25, "None", 
+    #             k=4, numSeeds=5, just_pibt=False)
