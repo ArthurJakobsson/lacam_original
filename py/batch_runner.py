@@ -154,7 +154,7 @@ def lacamExps(mapName, numScen, model, k, numSeeds, r_weight=0, mult_noise=0, ju
         model = model,
         k = k,
         verbose = 1,
-        cutoffTime = 60,
+        cutoffTime = 10,
         neural = model is not None,
         relative_last_action = [True, False][1],
         target_indicator = [True, False][1],
@@ -162,7 +162,7 @@ def lacamExps(mapName, numScen, model, k, numSeeds, r_weight=0, mult_noise=0, ju
         just_pibt = just_pibt,
         tie_breaking = False,
         r_weight = r_weight,
-        h_type = "perfect",
+        h_type = "noisy",
         mult_noise = mult_noise,
         # output = 'logs/nntest_' + map_prefix + ".csv"
     )
@@ -175,9 +175,9 @@ def lacamExps(mapName, numScen, model, k, numSeeds, r_weight=0, mult_noise=0, ju
         pibtString = "lacam"
 
     expSettings["outputcsv"] = getCSVNameFromSettings(
-        batchFolderName, map_prefix, expSettings, "_pibt_20seeds")
+        # batchFolderName, map_prefix, expSettings, "_pibt_20seeds")
         # batchFolderName, map_prefix, expSettings, "_manhattan_{}_5seeds".format(pibtString))
-        # batchFolderName, map_prefix, expSettings, "_noisy_{}_{}_5seeds".format(pibtString, int(mult_noise*100)))
+        batchFolderName, map_prefix, expSettings, "_noisy_{}_{}_5seeds".format(pibtString, int(mult_noise*100)))
         # batchFolderName, map_prefix, expSettings, "_rweightall{}_5seeds".format(int(r_weight*10)))
     
     # create directory if it does not exist
@@ -201,11 +201,11 @@ def runRExps():
                 k=4, numSeeds=5, r_weight=r_weight)
         
 def runNoisyExps():
-    for mult_noise in [0.01, 0.05, 0.1, 0.2]:
+    for mult_noise in [0.06, 0.07, 0.08]:
         lacamExps("scripts/map/random-32-32-10.map", 25, "None", 
                 k=4, numSeeds=5, r_weight=0, mult_noise=mult_noise, just_pibt=False)
-        lacamExps("scripts/map/random-32-32-10.map", 25, "None", 
-                k=4, numSeeds=5, r_weight=0, mult_noise=mult_noise, just_pibt=True)
+        # lacamExps("scripts/map/random-32-32-10.map", 25, "None", 
+        #         k=4, numSeeds=5, r_weight=0, mult_noise=mult_noise, just_pibt=True)
 
 """
 Example run:
@@ -235,9 +235,9 @@ if __name__ == "__main__":
     # ./build/main -i scripts/scen/scen-even/den312d-even-1.scen -m scripts/map/den312d.map -v 1 --time_limit_sec=100 --neural_flag=true --model=models/den3121050agentsk8.pt -k 8 -N 1 
     # lacamExps(args.map, args.numScen, args.model, args.k, args.numSeeds)
     # runRExps()
-    # runNoisyExps()
+    runNoisyExps()
 
-    lacamExps("scripts/map/random-32-32-10.map", 25, "None", 
-                k=4, numSeeds=20, just_pibt=True)
+    # lacamExps("scripts/map/random-32-32-10.map", 25, "None", 
+    #             k=4, numSeeds=20, just_pibt=True)
     # lacamExps("scripts/map/random-32-32-10.map", 25, "None", 
     #             k=4, numSeeds=5, just_pibt=False)
