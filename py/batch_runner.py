@@ -80,7 +80,7 @@ class BatchRunner:
             command += " --neural_random=True" # True is better than False (verified)
         else:
             command += " --neural_random=False"
-        command += " --prioritized_helpers=True"  # False is better than True (verified)
+        command += " --prioritized_helpers=False"  # False is better than True (verified)
         command += " --just_pibt={}".format(self.just_pibt)
         command += " --tie_breaking={}".format(self.tie_breaking)
         command += " --r_weight={}".format(self.r_weight)
@@ -154,7 +154,7 @@ def lacamExps(mapName, numScen, model, k, numSeeds, r_weight=0, mult_noise=0, ju
         model = model,
         k = k,
         verbose = 1,
-        cutoffTime = 10,
+        cutoffTime = 60,
         neural = model is not None,
         relative_last_action = [True, False][1],
         target_indicator = [True, False][1],
@@ -162,7 +162,7 @@ def lacamExps(mapName, numScen, model, k, numSeeds, r_weight=0, mult_noise=0, ju
         just_pibt = just_pibt,
         tie_breaking = False,
         r_weight = r_weight,
-        h_type = "noisy",
+        h_type = "perfect",
         mult_noise = mult_noise,
         # output = 'logs/nntest_' + map_prefix + ".csv"
     )
@@ -175,7 +175,7 @@ def lacamExps(mapName, numScen, model, k, numSeeds, r_weight=0, mult_noise=0, ju
         pibtString = "lacam"
 
     expSettings["outputcsv"] = getCSVNameFromSettings(
-        # batchFolderName, map_prefix, expSettings, "_pibt_20seeds")
+        # batchFolderName, map_prefix, expSettings, "_avoidAgentTie_{}_5seeds".format(pibtString))
         # batchFolderName, map_prefix, expSettings, "_manhattan_{}_5seeds".format(pibtString))
         batchFolderName, map_prefix, expSettings, "_noisy_{}_{}_5seeds".format(pibtString, int(mult_noise*100)))
         # batchFolderName, map_prefix, expSettings, "_rweightall{}_5seeds".format(int(r_weight*10)))
@@ -185,9 +185,9 @@ def lacamExps(mapName, numScen, model, k, numSeeds, r_weight=0, mult_noise=0, ju
     if not os.path.isdir(newFolderName):
         os.makedirs(newFolderName)
 
-    # agentRange = [1] + list(range(10, 100+1, 10))
+    agentRange = [1] + list(range(5, 50+1, 5))
     # agentRange = list(range(50, mapsToNumAgents[map_prefix][1]+1, 50))
-    agentRange = list(range(50, 450+1, 50))
+    # agentRange = list(range(50, 450+1, 50))
 
     seeds = list(range(1, numSeeds + 1))
 
@@ -201,9 +201,9 @@ def runRExps():
                 k=4, numSeeds=5, r_weight=r_weight)
         
 def runNoisyExps():
-    for mult_noise in [0.06, 0.07, 0.08]:
+    for mult_noise in [0.03, 0.04]:
         lacamExps("scripts/map/random-32-32-10.map", 25, "None", 
-                k=4, numSeeds=5, r_weight=0, mult_noise=mult_noise, just_pibt=False)
+                k=4, numSeeds=5, r_weight=0, mult_noise=mult_noise, just_pibt=True)
         # lacamExps("scripts/map/random-32-32-10.map", 25, "None", 
         #         k=4, numSeeds=5, r_weight=0, mult_noise=mult_noise, just_pibt=True)
 
@@ -217,6 +217,9 @@ python3 py/batch_runner.py --map scripts/map/random-32-32-10.map --numScen 25 \
 
 python3 py/batch_runner.py --map scripts/map/random-32-32-10.map --numScen 25 \
             --model models/random_20_prev_action.pt --k 4 --numSeeds 5
+
+python3 py/batch_runner.py --map scripts/map/warehouse-10-20-10-2-2.map --numScen 25 \
+            --model models/warehouse.pt --k 4 --numSeeds 1
 """
 if __name__ == "__main__":
 
@@ -232,12 +235,12 @@ if __name__ == "__main__":
     parser.add_argument('--numSeeds', type=int, required=True)
 
     args = parser.parse_args()
-    # ./build/main -i scripts/scen/scen-even/den312d-even-1.scen -m scripts/map/den312d.map -v 1 --time_limit_sec=100 --neural_flag=true --model=models/den3121050agentsk8.pt -k 8 -N 1 
-    # lacamExps(args.map, args.numScen, args.model, args.k, args.numSeeds)
+    ## ./build/main -i scripts/scen/scen-even/den312d-even-1.scen -m scripts/map/den312d.map -v 1 --time_limit_sec=100 --neural_flag=true --model=models/den3121050agentsk8.pt -k 8 -N 1 
+    lacamExps(args.map, args.numScen, args.model, args.k, args.numSeeds, just_pibt=True)
     # runRExps()
-    runNoisyExps()
+    # runNoisyExps()
 
     # lacamExps("scripts/map/random-32-32-10.map", 25, "None", 
-    #             k=4, numSeeds=20, just_pibt=True)
-    # lacamExps("scripts/map/random-32-32-10.map", 25, "None", 
     #             k=4, numSeeds=5, just_pibt=False)
+    # lacamExps("scripts/map/random-32-32-10.map", 25, "None", 
+    #             k=4, numSeeds=5, just_pibt=True)

@@ -628,6 +628,14 @@ bool Planner::funcPIBT(Agent* ai, std::vector<std::map<int,double>> &preds) //pa
               [&](Vertex* const v, Vertex* const u) {
       return D.getDouble(i,v)  + tie_breakers[v->id] <
             D.getDouble(i,u) + tie_breakers[u->id];
+      // if (D.get(i, v) == D.get(i, u)) {
+      //   if (occupied_now[u->id] && !occupied_now[v->id])
+      //     return true; // Prefer v here
+      //   if (!occupied_now[u->id] && occupied_now[v->id])
+      //     return false; // Prefer u here
+      //   return tie_breakers[v->id] < tie_breakers[u->id];
+      // }
+      // return D.get(i, v) < D.get(i, u);
     });
   }
 
