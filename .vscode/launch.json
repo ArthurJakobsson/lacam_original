@@ -10,7 +10,7 @@
         "request": "launch",
         "program": "${workspaceFolder}/build_debug/main",
         // "args": ["-i", "scripts/scen/scen-even/den312d-even-1.scen", "-m", "scripts/map/den312d.map", "-N" ,"2", "-v", "1", "-k", "8", "--time_limit_sec=100", "--neural_flag=false", "--model=models/den312d_2.pt"],
-        "args": ["--seed=1", "--num=60", 
+        "args": ["--seed=2", "--num=100", 
                 // "--map=scripts/map/random-32-32-10.map", "--scen=scripts/scen/scen-random/random-32-32-10-random-1.scen", 
                 // "--model=models/random_1_unweight_w4.pt", "--kval=4",
                 // "--map=scripts/map/maze-32-32-2.map", "--scen=scripts/scen/scen-random/maze-32-32-2-random-1.scen", 
@@ -20,7 +20,7 @@
                 // "--map=scripts/map/warehouse-10-20-10-2-2.map", "--scen=scripts/scen/scen-random/warehouse-10-20-10-2-2-random-1.scen", 
                 "--model=models/warehouse.pt", "--kval=4",
                 // "--map=scripts/map/room-64-64-16.map", "--scen=scripts/scen/scen-random/room-64-64-16-random-1.scen", 
-                "--time_limit_sec=30", "--verbose=1", "--neural_flag=false", 
+                "--time_limit_sec=1", "--verbose=1", "--neural_flag=false", 
                 // "--model=models/random_1_sub.pt", "--kval=8", 
                 // "--model=None", "--kval=8", 
                 // "--model=models/random_1_unweight_w4.pt", "--kval=4", 
@@ -41,7 +41,9 @@
                 "--tie_breaking=false",
                 "--r_weight=0",
                 "--h_type=perfect",
-                "--mult_noise=0"
+                "--mult_noise=0",
+                "--adaptive_priorities=false",
+                "--initial_ordering=inverse"
               ],
         "stopAtEntry": false,
         "cwd": "${workspaceFolder}",

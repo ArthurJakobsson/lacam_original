@@ -21,7 +21,7 @@ Constraint::Constraint(Constraint* parent, int i, Vertex* v)
 
 Constraint::~Constraint(){};
 
-Node::Node(Config _C, DistTable& D, Node* _parent)
+Node::Node(Config _C, DistTable& D, Node* _parent, const Planner* planner)
     : C(_C),
       parent(_parent),
       priorities(C.size(), 0),
@@ -34,14 +34,39 @@ Node::Node(Config _C, DistTable& D, Node* _parent)
   // set priorities
   if (parent == nullptr) {
     // initialize
-    for (size_t i = 0; i < N; ++i) priorities[i] = (float)D.get(i, C[i]) / N;
+    // for (size_t i = 0; i < N; ++i) 
+    //   priorities[i] = (float)D.get(i, C[i]) / N;
+    if (planner->initial_ordering == "bd") {
+      for (size_t i = 0; i < N; ++i) {
+        priorities[i] = (float)D.get(i, C[i]) / N;
+      }
+    } 
+    else if (planner->initial_ordering == "random") {
+      std::iota(priorities.begin(), priorities.end(), 0);
+      std::shuffle(priorities.begin(), priorities.end(), *(planner->MT));
+      for (size_t i = 0; i < N; ++i) {
+        priorities[i] = priorities[i] / N;
+      }
+    }
+    else if (planner->initial_ordering == "inverse") {
+      for (size_t i = 0; i < N; ++i) {
+        priorities[i] = 1 - (float)D.get(i, C[i]) / N;
+        assert(priorities[i] >= 0);
+      }
+    }
   } else {
     // dynamic priorities, akin to PIBT
-    for (size_t i = 0; i < N; ++i) {
-      if (D.get(i, C[i]) != 0) {
-        priorities[i] = parent->priorities[i] + 1;
-      } else {
-        priorities[i] = parent->priorities[i] - (int)parent->priorities[i];
+    if (planner->adaptive_priorities) {
+      for (size_t i = 0; i < N; ++i) {
+        if (D.get(i, C[i]) != 0) {
+          priorities[i] = parent->priorities[i] + 1;
+        } else {
+          priorities[i] = parent->priorities[i] - (int)parent->priorities[i];
+        }
+      }
+    } else {
+      for (size_t i = 0; i < N; ++i) {
+        priorities[i] = parent->priorities[i];
       }
     }
   }
@@ -66,7 +91,8 @@ Planner::Planner(const Instance* _ins, const Deadline* _deadline,
                  bool relative_last_action, bool target_indicator,
                  bool _neural_random, bool _prioritized_helpers,
                  bool _just_pibt, bool _tie_breaking, double _r_weight,
-                 std::string h_type, double mult_noise)
+                 std::string h_type, double mult_noise,
+                 std::string _initial_ordering, bool _adaptive_priorities)
     : ins(_ins),
       deadline(_deadline),
       MT(_MT),
@@ -90,7 +116,9 @@ Planner::Planner(const Instance* _ins, const Deadline* _deadline,
       prioritized_helpers(_prioritized_helpers),
       just_pibt(_just_pibt),
       tie_breaking(_tie_breaking),
-      r_weight(_r_weight)
+      r_weight(_r_weight),
+      initial_ordering(_initial_ordering),
+      adaptive_priorities(_adaptive_priorities)
 {
 }
 
@@ -436,7 +464,7 @@ AllSolution Planner::solve()
   std::vector<Constraint*> GC;  // garbage collection of constraints
 
   // insert initial node
-  auto S = new Node(ins->starts, D);
+  auto S = new Node(ins->starts, D, nullptr, this);
   OPEN.push(S);
   CLOSED[S->C] = S;
 
@@ -501,7 +529,7 @@ AllSolution Planner::solve()
     }
 
     // insert new search node
-    auto S_new = new Node(C, D, S);
+    auto S_new = new Node(C, D, S, this);
     OPEN.push(S_new);
     CLOSED[S_new->C] = S_new;
   }
@@ -683,13 +711,14 @@ Solution solve(const Instance& ins, const int verbose, const Deadline* deadline,
                std::mt19937* MT, torch::jit::script::Module* module, int k, bool neural_flag,
                bool force_goal_wait, bool relative_last_action, bool target_indicator,
                bool neural_random, bool prioritized_helpers, bool just_pibt, bool tie_breaking,
-               double r_weight, std::string h_type, double mult_noise)
+               double r_weight, std::string h_type, double mult_noise, 
+               std::string initial_ordering, bool adaptive_priorities)
 {
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tpre-processing");
   auto planner = Planner(&ins, deadline, MT, module, k, verbose, neural_flag, force_goal_wait, 
                          relative_last_action, target_indicator, neural_random,
                         prioritized_helpers, just_pibt, tie_breaking, r_weight,
-                        h_type, mult_noise);
+                        h_type, mult_noise, initial_ordering, adaptive_priorities);
   AllSolution all_solution = planner.solve();
   return std::get<0>(all_solution);
 }
@@ -699,12 +728,13 @@ AllSolution solveAll(const Instance& ins, const int verbose, const Deadline* dea
                std::mt19937* MT, torch::jit::script::Module* module, int k, bool neural_flag,
                bool force_goal_wait, bool relative_last_action, bool target_indicator,
                bool neural_random, bool prioritized_helpers, bool just_pibt, bool tie_breaking,
-               double r_weight, std::string h_type, double mult_noise)
+               double r_weight, std::string h_type, double mult_noise, 
+               std::string initial_ordering, bool adaptive_priorities)
 {
   info(1, verbose, "elapsed:", elapsed_ms(deadline), "ms\tpre-processing");
   auto planner = Planner(&ins, deadline, MT, module, k, verbose, neural_flag, force_goal_wait, 
                          relative_last_action, target_indicator, neural_random, 
                          prioritized_helpers, just_pibt, tie_breaking, r_weight,
-                         h_type, mult_noise);
+                         h_type, mult_noise, initial_ordering, adaptive_priorities);
   return planner.solve();
 }

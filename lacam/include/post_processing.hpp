@@ -20,5 +20,6 @@ void make_log(const Instance& ins, const AllSolution& solution,
               const std::string& output_name, const std::string& output_agent_paths,
               const double comp_time_ms,
               const std::string& map_name, const std::string& scen_name, const int seed,
+              const std::string& initial_ordering, const bool adaptive_priorities,
               const bool log_short = false  // true -> paths not appear
 );

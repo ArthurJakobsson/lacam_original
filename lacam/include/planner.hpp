@@ -21,6 +21,8 @@ struct Constraint {
   ~Constraint();
 };
 
+class Planner; // Forward declaration required for Node to have a pointer to Planner
+
 // high-level search node
 struct Node {
   const Config C;
@@ -35,7 +37,7 @@ struct Node {
   //store predictions here
   std::vector<std::map<int,double>> predictions;
 
-  Node(Config _C, DistTable& D, Node* _parent = nullptr);
+  Node(Config _C, DistTable& D, Node* _parent, const Planner* planner);
   ~Node();
 };
 using Nodes = std::vector<Node*>;
@@ -81,13 +83,16 @@ struct Planner {
   bool just_pibt; // Whether to just use PIBT instead of LaCAM
   bool tie_breaking; // Whether to use tie breaking combination
   double r_weight; // Weight for weighted combination of NN and PIBT
+  std::string initial_ordering; // Initial ordering of agents [bd, random, inverse]
+  bool adaptive_priorities; // Whether to use adaptive priorities or keep them constant
 
   Planner(const Instance* _ins, const Deadline* _deadline, std::mt19937* _MT,
           torch::jit::script::Module* _module, int _k = 4, int _verbose = 0, bool _neural_flag = true,
           bool _force_goal_wait = false, bool _relative_last_action = false, bool _target_indicator = false,
           bool _neural_random = false, bool _prioritized_helpers = false, 
           bool _just_pibt = false, bool _tie_breaking = false, double r_weight = 0,
-          std::string h_type = "perfect", double mult_noise = 0);
+          std::string h_type = "perfect", double mult_noise = 0,
+          std::string _initial_ordering = "bd", bool _adaptive_priorities = false);
   torch::Tensor slice_and_fix_pad(torch::Tensor curr_bd, int row, int col, int subtract_row, int subtract_col);
   std::vector<std::map<int, double>> createNbyFive (const Node* S);
   torch::Tensor get_map();
@@ -109,7 +114,8 @@ Solution solve(const Instance& ins, const int verbose = 0,
                bool _force_goal_wait = false, bool _relative_last_action = false, bool _target_indicator = false,
                bool _neural_random = false, bool _prioritized_helpers = false, 
                bool _just_pibt = false, bool _tie_breaking = false, double r_weight = 0,
-               std::string h_type = "perfect", double mult_noise = 0);
+               std::string h_type = "perfect", double mult_noise = 0,
+               std::string _initial_ordering = "bd", bool _adaptive_priorities = false);
 
 AllSolution solveAll(const Instance& ins, const int verbose = 0,
                const Deadline* deadline = nullptr, std::mt19937* MT = nullptr,
@@ -117,4 +123,5 @@ AllSolution solveAll(const Instance& ins, const int verbose = 0,
                bool _force_goal_wait = false, bool _relative_last_action = false, bool _target_indicator = false,
                bool _neural_random = false, bool _prioritized_helpers = false,
                bool _just_pibt = false, bool _tie_breaking = false, double r_weight = 0,
-               std::string h_type = "perfect", double mult_noise = 0);
+               std::string h_type = "perfect", double mult_noise = 0,
+               std::string _initial_ordering = "bd", bool _adaptive_priorities = false);

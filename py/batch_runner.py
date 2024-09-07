@@ -11,10 +11,11 @@ mapsToNumAgents = {
     "random-32-32-20": (50, 409), # Verified
     "random-32-32-10": (50, 461), # Verified
     "den520d": (50, 1000), # Verified
-    "den312d": (50, 1000), # Verified
+    "den312d": (100, 1000), # Verified
     "empty-32-32": (50, 511), # Verified
     "empty-48-48": (50, 1000), # Verified
     "ht_chantry": (50, 1000), # Verified
+    "room-32-32-4": (50, 250), # Verified
 }
 
 def getCSVNameFromSettings(folder, map_prefix, expSettings, extraSuffix=""):
@@ -32,7 +33,7 @@ class BatchRunner:
     """Class for running a single scen file"""
     def __init__(self, outputcsv, mapName, model, k, verbose, cutoffTime, neural, relative_last_action, 
                             target_indicator, force_goal_wait, just_pibt, tie_breaking, r_weight,
-                            h_type, mult_noise) -> None:
+                            h_type, mult_noise, initial_ordering, adaptive_priorities) -> None:
         self.cutoffTime = cutoffTime,
         self.map = mapName
         # scen_prefix should be MapName-random- or MapName-even-, we will attach the scen number and .scen
@@ -53,6 +54,8 @@ class BatchRunner:
         self.r_weight = r_weight
         self.h_type = h_type
         self.mult_noise = mult_noise
+        self.initial_ordering = initial_ordering
+        self.adaptive_priorities = adaptive_priorities
 
     def runSingleSettingsOnMap(self, numAgents, aSeed, scen):
         # Main command
@@ -86,6 +89,8 @@ class BatchRunner:
         command += " --r_weight={}".format(self.r_weight)
         command += " --h_type={}".format(self.h_type)
         command += " --mult_noise={}".format(self.mult_noise)
+        command += " --initial_ordering={}".format(self.initial_ordering)
+        command += " --adaptive_priorities={}".format(self.adaptive_priorities)
 
         # True if want failure error
         # print(command)
@@ -95,7 +100,8 @@ class BatchRunner:
     def detectExistingStatus(self, numAgents, scens):
         if exists(self.outputcsv):
             df = pd.read_csv(self.outputcsv)
-            df = df[(df["agents"] == numAgents) & df["scen_name"].isin(scens)]
+            df = df[(df["agents"] == numAgents) & df["scen_name"].isin(scens) & 
+                    (df["initial_ordering"] == self.initial_ordering) & (df["adaptive_priorities"] == self.adaptive_priorities)]
             # pdb.set_trace()
             numFailed = (df["solved"] == 0).sum()
             numSuccess = (df["solved"] == 1).sum()
@@ -131,7 +137,8 @@ class BatchRunner:
                     break
 
 
-def lacamExps(mapName, numScen, model, k, numSeeds, r_weight=0, mult_noise=0, just_pibt=False):
+def lacamExps(mapName, numScen, model, k, numSeeds, r_weight=0, mult_noise=0, just_pibt=False,
+              initial_ordering="bd", adaptive_priorities=True):
     batchFolderName = "logs"
     # Make folder if does not exist
     if not os.path.isdir(batchFolderName):
@@ -154,7 +161,7 @@ def lacamExps(mapName, numScen, model, k, numSeeds, r_weight=0, mult_noise=0, ju
         model = model,
         k = k,
         verbose = 1,
-        cutoffTime = 60,
+        cutoffTime = 10,
         neural = model is not None,
         relative_last_action = [True, False][1],
         target_indicator = [True, False][1],
@@ -164,6 +171,8 @@ def lacamExps(mapName, numScen, model, k, numSeeds, r_weight=0, mult_noise=0, ju
         r_weight = r_weight,
         h_type = "perfect",
         mult_noise = mult_noise,
+        initial_ordering = initial_ordering,
+        adaptive_priorities = adaptive_priorities,
         # output = 'logs/nntest_' + map_prefix + ".csv"
     )
     # if expSettings["neural"] is False:
@@ -177,16 +186,19 @@ def lacamExps(mapName, numScen, model, k, numSeeds, r_weight=0, mult_noise=0, ju
     expSettings["outputcsv"] = getCSVNameFromSettings(
         # batchFolderName, map_prefix, expSettings, "_avoidAgentTie_{}_5seeds".format(pibtString))
         # batchFolderName, map_prefix, expSettings, "_manhattan_{}_5seeds".format(pibtString))
-        batchFolderName, map_prefix, expSettings, "_noisy_{}_{}_5seeds".format(pibtString, int(mult_noise*100)))
+        # batchFolderName, map_prefix, expSettings, "_noisy_{}_{}_5seeds".format(pibtString, int(mult_noise*100)))
         # batchFolderName, map_prefix, expSettings, "_rweightall{}_5seeds".format(int(r_weight*10)))
-    
+        batchFolderName, map_prefix, expSettings, "_io_{}_adaptive_{}_5seeds".format(initial_ordering, adaptive_priorities)
+        )
+    # pdb.set_trace()
     # create directory if it does not exist
     newFolderName = "/".join(expSettings["outputcsv"].split('/')[:-1])
     if not os.path.isdir(newFolderName):
         os.makedirs(newFolderName)
 
-    agentRange = [1] + list(range(5, 50+1, 5))
-    # agentRange = list(range(50, mapsToNumAgents[map_prefix][1]+1, 50))
+    # agentRange = [1] + list(range(5, 50+1, 5))
+    increment = mapsToNumAgents[map_prefix][0]
+    agentRange = list(range(increment, mapsToNumAgents[map_prefix][1]+1, increment))
     # agentRange = list(range(50, 450+1, 50))
 
     seeds = list(range(1, numSeeds + 1))
@@ -207,6 +219,13 @@ def runNoisyExps():
         # lacamExps("scripts/map/random-32-32-10.map", 25, "None", 
         #         k=4, numSeeds=5, r_weight=0, mult_noise=mult_noise, just_pibt=True)
 
+def runInitialOrderingExps():
+    for initial_ordering in ["bd", "random", "inverse"]:
+        for adaptive_priorities in [True, False]:
+            lacamExps("scripts/map/room-32-32-4.map", 25, "None", 
+                    k=4, numSeeds=5, r_weight=0, mult_noise=0, just_pibt=True,
+                    initial_ordering=initial_ordering, adaptive_priorities=adaptive_priorities)
+
 """
 Example run:
 python3 py/batch_runner.py --map scripts/map/random-32-32-10.map --numScen 25 \
@@ -220,6 +239,9 @@ python3 py/batch_runner.py --map scripts/map/random-32-32-10.map --numScen 25 \
 
 python3 py/batch_runner.py --map scripts/map/warehouse-10-20-10-2-2.map --numScen 25 \
             --model models/warehouse.pt --k 4 --numSeeds 1
+
+python3 py/batch_runner.py --map scripts/map/den312d.map --numScen 25 \
+            --model None --k 4 --numSeeds 5
 """
 if __name__ == "__main__":
 
@@ -235,10 +257,11 @@ if __name__ == "__main__":
     parser.add_argument('--numSeeds', type=int, required=True)
 
     args = parser.parse_args()
-    ## ./build/main -i scripts/scen/scen-even/den312d-even-1.scen -m scripts/map/den312d.map -v 1 --time_limit_sec=100 --neural_flag=true --model=models/den3121050agentsk8.pt -k 8 -N 1 
-    lacamExps(args.map, args.numScen, args.model, args.k, args.numSeeds, just_pibt=True)
+    # ## ./build/main -i scripts/scen/scen-even/den312d-even-1.scen -m scripts/map/den312d.map -v 1 --time_limit_sec=100 --neural_flag=true --model=models/den3121050agentsk8.pt -k 8 -N 1 
+    lacamExps(args.map, args.numScen, args.model, args.k, args.numSeeds, just_pibt=False)
     # runRExps()
     # runNoisyExps()
+    # runInitialOrderingExps()
 
     # lacamExps("scripts/map/random-32-32-10.map", 25, "None", 
     #             k=4, numSeeds=5, just_pibt=False)

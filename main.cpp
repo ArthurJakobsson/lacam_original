@@ -57,6 +57,11 @@ int main(int argc, char* argv[])
       .help("heuristic type, one of [perfect, manhattan, noisy]").required();
   program.add_argument("--mult_noise")
       .help("heuristic multi_noise, [0,1]").required();
+  program.add_argument("--initial_ordering")
+      .help("Initial ordering of agents [bd, random, inverse]").required();
+  program.add_argument("--adaptive_priorities")
+      .help("Whether to use adaptive priorities or keep them constant").required();
+    
 
   try {
     program.parse_known_args(argc, argv);
@@ -100,6 +105,12 @@ int main(int argc, char* argv[])
                       program.get<std::string>("tie_breaking") == "True";
   const std::string h_type = program.get<std::string>("h_type");
   const double mult_noise = std::stod(program.get<std::string>("mult_noise"));
+  const std::string initial_ordering = program.get<std::string>("initial_ordering");
+  const bool adaptive_priorities = program.get<std::string>("adaptive_priorities") == "true" ||
+                      program.get<std::string>("adaptive_priorities") == "True";
+  
+  assert(initial_ordering == "bd" || initial_ordering == "random" || initial_ordering == "inverse");
+
   if (mult_noise != 0) {
     assert(h_type == "noisy");
   }
@@ -134,7 +145,8 @@ int main(int argc, char* argv[])
   const auto deadline = Deadline(time_limit_sec * 1000);
   AllSolution all_solution = solveAll(ins, verbose - 1, &deadline, &MT, &module, k, neural_flag, force_goal_wait,
                                       relative_last_action, target_indicator, neural_random, prioritized_helpers, 
-                                      just_pibt, tie_breaking, r_weight, h_type, mult_noise);
+                                      just_pibt, tie_breaking, r_weight, h_type, mult_noise,
+                                      initial_ordering, adaptive_priorities);
   const auto comp_time_ms = deadline.elapsed_ms();
   std::tie(solution, cache_hit, loop_cnt) = all_solution;
   // failure
@@ -148,6 +160,7 @@ int main(int argc, char* argv[])
 
   // post processing
   print_stats(verbose, ins, solution, comp_time_ms);
-  make_log(ins, all_solution, output_csv, output_agent_paths, comp_time_ms, map_name, scen_name, seed, log_short);
+  make_log(ins, all_solution, output_csv, output_agent_paths, comp_time_ms, map_name, scen_name, 
+          seed, initial_ordering, adaptive_priorities, log_short);
   return 0;
 }
